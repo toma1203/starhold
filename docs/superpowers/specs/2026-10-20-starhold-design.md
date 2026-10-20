@@ -1,6 +1,6 @@
 # Starhold — dizajn (Faza 1: web, svemirska tema)
 
-Datum: 2026-10-20 · Status: čeka pregled
+Datum: 2026-10-20 · Status: odobren
 Radni naziv: **Starhold** (konačno ime + provjera zaštitnih znakova prije objave)
 
 ## 1. Cilj i kontekst
@@ -174,7 +174,9 @@ server ──(game:events [...])──────────▶ svima (filtrir
 - `LICENSE`, `CHANGELOG.md`, verzija `1.0.0`, favicon/PWA ikone, OG slika.
 - Produkcijski checklist: sigurnosna zaglavlja, rate limit, validacija svih ulaza, `/healthz`, strukturirani logovi, bez `console.log` šuma.
 
-## 8. Otvorena pitanja za korisnika
-1. **Repozitorij javni ili privatni?** (preporuka: privatan dok ne odlučiš o objavi).
-2. **Licenca:** "sva prava pridržana" (preporuka ako možda želiš zarađivati) ili MIT (open source).
-3. **Hosting:** Render besplatni plan (spava nakon 15 min neaktivnosti → prvo učitavanje ~30–50 s; 7 $/mj bez spavanja) — ili nešto drugo. Za deploy trebaš svoj Render račun (ja pripremim sve, ti povežeš repozitorij).
+## 8. Odluke korisnika (2026-10-20)
+1. **Repozitorij: javni** — `github.com/toma1203/starhold`.
+2. **Licenca: sva prava pridržana** (`LICENSE` = proprietary, izvorni kod vidljiv, bez dozvole za korištenje/distribuciju).
+3. **Hosting: Render** (besplatni plan za početak; `render.yaml` Blueprint). Korisnik otvara Render račun i povezuje repozitorij; sve ostalo je pripremljeno.
+
+Status spec-a: **odobren**.
