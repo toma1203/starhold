@@ -1,4 +1,5 @@
 import { clone } from '../clone.ts';
+import { checkTargetReached, finishGame, ranking, ROUND_LIMIT } from '../scoring.ts';
 import { currentPlayer } from '../state.ts';
 import type { GameEvent, GameState, HandlerTable } from '../types.ts';
 import { guardTurn } from './guard.ts';
@@ -8,8 +9,17 @@ export interface Step {
   events: GameEvent[];
 }
 
-/** Begins the current player's turn. Never mutates `state`. (Task 10 adds winner/round-limit checks.) */
+/**
+ * Begins the current player's turn. Never mutates `state`. The game ends here instead (emitting only
+ * `gameOver`) if the incoming player already has the target VP, or the round limit has passed.
+ */
 export function startTurn(state: GameState): Step {
+  const reached = checkTargetReached(state);
+  if (reached.state.phase === 'FINISHED') return reached;
+  if (state.round > ROUND_LIMIT) {
+    const [winner] = ranking(state);
+    if (winner !== undefined) return finishGame(state, winner, 'roundLimit');
+  }
   const next = clone(state);
   next.phase = 'HOME_BONUS';
   next.dice = null;

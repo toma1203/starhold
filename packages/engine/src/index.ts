@@ -15,3 +15,4 @@ export { beginPirates, randomDiscard, stealRandom } from './rules/pirates.ts';
 export { tradeRate } from './rules/trade.ts';
 export { resolveBattle } from './combat.ts';
 export { maxMovable, maxAttackDice, connectedOwned } from './rules/military.ts';
+export { victoryPoints, sectorCount, updateAwards, ranking } from './scoring.ts';

@@ -7,6 +7,7 @@ import { homeHandlers } from './rules/home.ts';
 import { militaryHandlers } from './rules/military.ts';
 import { pirateHandlers } from './rules/pirates.ts';
 import { rollHandlers } from './rules/roll.ts';
+import { checkTargetReached, updateAwards } from './scoring.ts';
 import { tradeHandlers } from './rules/trade.ts';
 import { turnHandlers } from './rules/turn.ts';
 import type {
@@ -67,15 +68,14 @@ export function createGame(settings: GameSettings, seed: number): GameState {
   };
 }
 
-/**
- * Post-action hook run after every successful handler. Task 10 recomputes awards, victory points
- * and the winner here; until then it is the identity.
- */
+/** Post-action hook: refreshes awards, then ends the game if the current player reached the target. */
 function afterAction(
   state: GameState,
   events: GameEvent[],
 ): { state: GameState; events: GameEvent[] } {
-  return { state, events };
+  const awards = updateAwards(state);
+  const victory = checkTargetReached(awards.state);
+  return { state: victory.state, events: [...events, ...awards.events, ...victory.events] };
 }
 
 export function applyAction(state: GameState, playerId: PlayerId, action: Action): ActionResult {
