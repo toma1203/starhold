@@ -13,7 +13,8 @@ import {
   MIN_WIN_CHANCE,
   adjacentEnemyFleets,
   adjacentSectors,
-  attackChance,
+  conquestChance,
+  conquestForecast,
   awardSwing,
   conquestVp,
   evalBag,
@@ -25,6 +26,8 @@ import {
 const VP_VALUE = 10;
 const TRADE_MARGIN = 0.5;
 const WIN_NOW = 1000;
+const FLEET_LOSS_VALUE = 0.5;
+const STRIKE_WEIGHT = 2;
 const TIE_EPSILON = 1e-9;
 
 const emptyBag = (): ResourceBag => ({ metal: 0, energy: 0, crystal: 0, biomass: 0 });
@@ -138,25 +141,47 @@ function starbaseScore(ctx: Context, sector: Sector): number {
   return VP_VALUE + guard + winBonus(ctx, 1);
 }
 
+/** What capturing `target` is worth: its production taken from the opponent, VP and award swings. */
+function attackGain(ctx: Context, target: Sector): number {
+  if (target.owner === null) return 0;
+  const swing = awardSwing(ctx.view, ctx.me, target.owner);
+  return 2 * sectorValue(target) + VP_VALUE * (conquestVp(target) + swing);
+}
+
+/** Value of the best conquest a stack of `fleets` in `sector` could go for (0 without a target). */
+function strikePotential(ctx: Context, sector: Sector, fleets: number): number {
+  let best = 0;
+  for (const target of adjacentSectors(ctx.view, sector)) {
+    if (target.owner === null || target.owner === ctx.me || target.kind === 'home') continue;
+    const chance = conquestChance(fleets, target.fleets, target.structure === 'starbase');
+    best = Math.max(best, chance * attackGain(ctx, target));
+  }
+  return best;
+}
+
 function fleetScore(ctx: Context, sector: Sector): number {
-  if (isThreatened(ctx.view, ctx.me, sector)) return 3;
+  // A reinforcement that brings a conquest within reach is worth part of that conquest.
+  const strike =
+    STRIKE_WEIGHT *
+    (strikePotential(ctx, sector, sector.fleets + 1) - strikePotential(ctx, sector, sector.fleets));
+  if (isThreatened(ctx.view, ctx.me, sector)) return 3 + strike;
   // Fleets are the fuel for expansion: a lone fleet beside free land can start moving out.
-  if (sector.fleets === 1 && hasFreeNeighbour(ctx.view, sector)) return 1.5;
-  return 1;
+  if (sector.fleets === 1 && hasFreeNeighbour(ctx.view, sector)) return 1.5 + strike;
+  return 1 + strike;
 }
 
 function expandScore(ctx: Context, from: Sector, to: Sector): number {
   const exposed = adjacentEnemyFleets(ctx.view, ctx.me, from) > 1 ? 2 : 0;
-  return 4 + sectorValue({ ...to, structure: 'none' }) - exposed;
+  // Marching out gives up the stack that was building towards a conquest here.
+  const forgone = STRIKE_WEIGHT * strikePotential(ctx, from, from.fleets);
+  return 4 + sectorValue({ ...to, structure: 'none' }) - exposed - forgone;
 }
 
-function attackScore(ctx: Context, to: Sector, dice: number): number {
-  const chance = attackChance(dice, to);
-  if (chance < MIN_WIN_CHANCE || to.owner === null) return -Infinity;
-  const vp = conquestVp(to);
-  const swing = awardSwing(ctx.view, ctx.me, to.owner);
-  const gain = sectorValue(to) + VP_VALUE * (vp + swing);
-  return chance * gain - 2;
+function attackScore(ctx: Context, from: Sector, to: Sector): number {
+  if (to.owner === null) return -Infinity;
+  const forecast = conquestForecast(from.fleets, to.fleets, to.structure === 'starbase');
+  if (forecast.capture < MIN_WIN_CHANCE) return -Infinity;
+  return forecast.capture * attackGain(ctx, to) - FLEET_LOSS_VALUE * forecast.losses;
 }
 
 function fortifyScore(ctx: Context, from: Sector, to: Sector, count: number): number {
@@ -234,8 +259,9 @@ function scoreMain(ctx: Context, action: Action): number {
       return from && to ? expandScore(ctx, from, to) : -Infinity;
     }
     case 'attack': {
+      const from = sectors[action.from];
       const to = sectors[action.to];
-      return to ? attackScore(ctx, to, action.dice) : -Infinity;
+      return from && to ? attackScore(ctx, from, to) : -Infinity;
     }
     case 'fortify': {
       const from = sectors[action.from];

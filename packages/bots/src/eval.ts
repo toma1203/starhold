@@ -26,38 +26,99 @@ function allRolls(count: number): number[][] {
   return rolls;
 }
 
-/** [attDice - 1][defDice - 1][bonus ? 1 : 0] -> chance that the defender loses more than the attacker. */
-const WIN_TABLE: number[][][] = [1, 2, 3].map((att) =>
-  [1, 2].map((def) =>
-    [false, true].map((bonus) => {
-      const attackRolls = allRolls(att);
-      const defendRolls = allRolls(def);
-      let wins = 0;
-      for (const a of attackRolls) {
-        for (const d of defendRolls) {
-          const { attackerLosses, defenderLosses } = resolveBattle(a, d, bonus);
-          if (defenderLosses > attackerLosses) wins += 1;
-        }
-      }
-      return wins / (attackRolls.length * defendRolls.length);
-    }),
-  ),
-);
-
 /**
  * Chance that one attack round goes the attacker's way (the defender loses strictly more fleets
  * than the attacker; ties on the dice favour the defender). `bonus` is a defending starbase.
  * Exact: enumerated once at module load from the engine's own dice resolution.
  */
 export function attackWinChance(attDice: number, defDice: number, bonus: boolean): number {
-  return WIN_TABLE[attDice - 1]?.[defDice - 1]?.[bonus ? 1 : 0] ?? 0;
+  const outcomes = OUTCOMES[attDice - 1]?.[defDice - 1]?.[bonus ? 1 : 0] ?? [];
+  return outcomes
+    .filter((o) => o.defenderLosses > o.attackerLosses)
+    .reduce((sum, o) => sum + o.probability, 0);
 }
 
 export const MIN_WIN_CHANCE = 0.55;
 
-/** Chance that an attack on this sector with `dice` dice wins the round. */
-export function attackChance(dice: number, target: Sector): number {
-  return attackWinChance(dice, Math.min(2, target.fleets), target.structure === 'starbase');
+interface Outcome {
+  attackerLosses: number;
+  defenderLosses: number;
+  probability: number;
+}
+
+/** [attDice - 1][defDice - 1][bonus ? 1 : 0] -> every possible (losses, losses) result of one round. */
+const OUTCOMES: Outcome[][][][] = [1, 2, 3].map((att) =>
+  [1, 2].map((def) =>
+    [false, true].map((bonus) => {
+      const attackRolls = allRolls(att);
+      const defendRolls = allRolls(def);
+      const total = attackRolls.length * defendRolls.length;
+      const counts = new Map<string, Outcome>();
+      for (const a of attackRolls) {
+        for (const d of defendRolls) {
+          const { attackerLosses, defenderLosses } = resolveBattle(a, d, bonus);
+          const key = `${attackerLosses},${defenderLosses}`;
+          const entry = counts.get(key) ?? { attackerLosses, defenderLosses, probability: 0 };
+          entry.probability += 1 / total;
+          counts.set(key, entry);
+        }
+      }
+      return [...counts.values()];
+    }),
+  ),
+);
+
+const MAX_FLEETS = 30;
+
+export interface Forecast {
+  /** Chance the sector is captured. */
+  capture: number;
+  /** Expected fleets the attacker loses on the way (to a capture or to giving up at 1 fleet). */
+  losses: number;
+}
+
+const forecastMemo = new Map<number, Forecast>();
+
+/**
+ * Attacking again and again with the most dice allowed (min(3, fleets - 1) against min(2, fleets))
+ * until the defender is out of fleets (captured) or the attacker is down to one (failure).
+ */
+export function conquestForecast(
+  attackerFleets: number,
+  defenderFleets: number,
+  defenderBonus: boolean,
+): Forecast {
+  const a = Math.min(MAX_FLEETS, Math.max(0, Math.floor(attackerFleets)));
+  const d = Math.min(MAX_FLEETS, Math.max(0, Math.floor(defenderFleets)));
+  if (d <= 0) return { capture: 1, losses: 0 };
+  if (a <= 1) return { capture: 0, losses: 0 };
+  const key = (a * (MAX_FLEETS + 1) + d) * 2 + (defenderBonus ? 1 : 0);
+  const known = forecastMemo.get(key);
+  if (known) return known;
+  const dice = Math.min(3, a - 1);
+  const defending = Math.min(2, d);
+  let capture = 0;
+  let losses = 0;
+  for (const o of OUTCOMES[dice - 1]?.[defending - 1]?.[defenderBonus ? 1 : 0] ?? []) {
+    const next = conquestForecast(a - o.attackerLosses, d - o.defenderLosses, defenderBonus);
+    capture += o.probability * next.capture;
+    losses += o.probability * (o.attackerLosses + next.losses);
+  }
+  const result = { capture, losses };
+  forecastMemo.set(key, result);
+  return result;
+}
+
+/**
+ * Exact chance that attacking a sector again and again captures it (see `conquestForecast`).
+ * Inputs are capped at 30 fleets.
+ */
+export function conquestChance(
+  attackerFleets: number,
+  defenderFleets: number,
+  defenderBonus: boolean,
+): number {
+  return conquestForecast(attackerFleets, defenderFleets, defenderBonus).capture;
 }
 
 // ---- Resource scarcity -----------------------------------------------------------------------

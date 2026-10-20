@@ -66,6 +66,7 @@ export function stepGame(
 export interface GameResult {
   state: GameState;
   actions: number;
+  attacks: number;
 }
 
 export function playGame(
@@ -76,11 +77,13 @@ export function playGame(
 ): GameResult {
   let state = initial;
   let actions = 0;
+  let attacks = 0;
   while (state.phase !== 'FINISHED' && actions < maxActions) {
     const next = stepGame(state, levels, random);
     if (!next) throw new Error(`nobody can act in phase ${state.phase}`);
     state = next.state;
     actions += 1;
+    if (next.step.action.type === 'attack') attacks += 1;
   }
-  return { state, actions };
+  return { state, actions, attacks };
 }

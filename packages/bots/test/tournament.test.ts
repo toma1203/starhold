@@ -46,4 +46,22 @@ describe('bot tournaments', () => {
     },
     { timeout: 120_000 },
   );
+  it(
+    'normal bots are not pacifists: 40 normal-vs-normal 2-player games see real conquests',
+    () => {
+      let conquests = 0;
+      let attacks = 0;
+      for (let i = 0; i < 40; i++) {
+        const initial = makeState(2, 5000 + i);
+        const levels: Record<PlayerId, BotLevel> = {};
+        initial.players.forEach((p) => (levels[p.id] = 'normal'));
+        const result = playGame(initial, levels, seededRandom(90 + i), MAX_ACTIONS);
+        expect(result.state.phase).toBe('FINISHED');
+        attacks += result.attacks;
+        conquests += result.state.players.reduce((sum, p) => sum + p.conquests, 0);
+      }
+      expect(conquests, `${attacks} attacks`).toBeGreaterThanOrEqual(30);
+    },
+    { timeout: 120_000 },
+  );
 });

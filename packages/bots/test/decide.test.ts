@@ -13,7 +13,7 @@ import {
   type SectorId,
 } from '@starhold/engine';
 import { describe, expect, it } from 'vitest';
-import { attackWinChance, decide } from '../src/index.ts';
+import { attackWinChance, conquestChance, decide } from '../src/index.ts';
 import { actorsInOrder, makeState, seededRandom } from './play.ts';
 
 const LEVELS: BotLevel[] = ['easy', 'normal'];
@@ -131,16 +131,44 @@ describe('decide', () => {
     expect(decideFor(state, 'p1', 'normal')).toEqual({ type: 'buildColony', at: target.id });
   });
 
-  it('normal bot does not attack with win chance < 0.55', () => {
+  it('normal bot attacks only when the conquest chance clears 0.55 (boundary pinned)', () => {
     const [from, to] = adjacentPair(makeState(2, 11));
-    let state = patchSector(makeState(2, 11), from, { owner: 'p1', fleets: 2, structure: 'none' });
-    state = patchSector(state, to, { owner: 'p2', fleets: 2, structure: 'none' });
-    state = withHand(state, 'p1', bag());
-    state = mainFor(state, 'p1');
-    expect(attackWinChance(1, 2, false)).toBeLessThan(0.55);
-    for (let seed = 1; seed <= 20; seed++) {
-      expect(decideFor(state, 'p1', 'normal', seed)?.type).not.toBe('attack');
+    // A hot starbase target: the prize is large, so only the odds decide.
+    const arrange = (attackers: number): GameState => {
+      let state = patchSector(makeState(2, 11), from, {
+        owner: 'p1',
+        fleets: attackers,
+        structure: 'none',
+      });
+      state = patchSector(state, to, {
+        owner: 'p2',
+        fleets: 3,
+        structure: 'starbase',
+        resource: 'metal',
+        number: 8,
+      });
+      return mainFor(withHand(state, 'p1', bag()), 'p1');
+    };
+    expect(conquestChance(5, 3, true)).toBeLessThan(0.55);
+    expect(conquestChance(6, 3, true)).toBeGreaterThan(0.55);
+    for (let seed = 1; seed <= 10; seed++) {
+      expect(decideFor(arrange(5), 'p1', 'normal', seed)?.type).not.toBe('attack');
+      expect(decideFor(arrange(6), 'p1', 'normal', seed)).toEqual({
+        type: 'attack',
+        from,
+        to,
+        dice: 3,
+      });
     }
+  });
+
+  it('normal bot attacks an enemy colony with 2 fleets when it holds 8 beside it', () => {
+    const [from, to] = adjacentPair(makeState(2, 11));
+    let state = patchSector(makeState(2, 11), from, { owner: 'p1', fleets: 8, structure: 'none' });
+    state = patchSector(state, to, { owner: 'p2', fleets: 2, structure: 'colony' });
+    state = mainFor(withHand(state, 'p1', bag()), 'p1');
+    expect(conquestChance(8, 2, false)).toBeGreaterThan(0.9);
+    expect(decideFor(state, 'p1', 'normal')).toEqual({ type: 'attack', from, to, dice: 3 });
   });
 
   it('normal bot attacks a lone defender with an overwhelming force', () => {
@@ -293,5 +321,42 @@ describe('attackWinChance', () => {
   it('matches a hand-computed value', () => {
     // 1 die vs 1 die: the attacker needs a strictly higher roll, 15 of the 36 pairs.
     expect(attackWinChance(1, 1, false)).toBeCloseTo(15 / 36, 10);
+  });
+});
+
+describe('conquestChance', () => {
+  it('matches a single hand-computed round', () => {
+    // 2 fleets attack with 1 die against 1 fleet: win (15/36) or the attacker is left with 1 and stops.
+    expect(conquestChance(2, 1, false)).toBeCloseTo(15 / 36, 10);
+    expect(conquestChance(2, 1, false)).toBeCloseTo(attackWinChance(1, 1, false), 10);
+  });
+
+  it('is near-certain for overwhelming forces and hopeless for tiny ones', () => {
+    expect(conquestChance(10, 1, false)).toBeGreaterThan(0.95);
+    expect(conquestChance(3, 5, false)).toBeLessThan(0.2);
+    expect(conquestChance(1, 1, false)).toBe(0);
+    expect(conquestChance(5, 0, false)).toBe(1);
+  });
+
+  it('grows with attacker fleets, shrinks with defender fleets and with a starbase', () => {
+    for (const defenders of [1, 2, 3, 4]) {
+      let previous = -1;
+      for (let attackers = 1; attackers <= 25; attackers++) {
+        const chance = conquestChance(attackers, defenders, false);
+        expect(chance).toBeGreaterThanOrEqual(previous);
+        expect(conquestChance(attackers, defenders, true)).toBeLessThanOrEqual(chance);
+        previous = chance;
+      }
+    }
+    for (let defenders = 1; defenders < 8; defenders++) {
+      expect(conquestChance(9, defenders + 1, false)).toBeLessThan(
+        conquestChance(9, defenders, false),
+      );
+    }
+  });
+
+  it('caps absurd inputs instead of blowing up', () => {
+    expect(conquestChance(500, 400, false)).toBeGreaterThan(0);
+    expect(conquestChance(500, 400, false)).toBeLessThanOrEqual(1);
   });
 });
