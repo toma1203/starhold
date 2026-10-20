@@ -1,0 +1,16 @@
+{
+  "name": "@starhold/bots",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit && tsc --noEmit -p test/tsconfig.src-only.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@starhold/engine": "*"
+  }
+}
