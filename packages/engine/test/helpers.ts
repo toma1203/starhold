@@ -78,3 +78,26 @@ export function seedForSum(sum: number): number {
   }
   throw new Error(`no seed found for dice sum ${sum}`);
 }
+
+/**
+ * Smallest rng seed whose consecutive `rollDie` calls yield exactly `attack` and then `defend`
+ * (the order an attack rolls them in). Expected search length is 6^(total dice): keep the
+ * sequences short.
+ */
+export function seedForDice(attack: readonly number[], defend: readonly number[]): number {
+  const wanted = [...attack, ...defend];
+  for (let seed = 0; seed < 1000000; seed++) {
+    let s = seed;
+    let matches = true;
+    for (const face of wanted) {
+      const [die, next] = rollDie(s);
+      if (die !== face) {
+        matches = false;
+        break;
+      }
+      s = next;
+    }
+    if (matches) return seed;
+  }
+  throw new Error(`no seed found for dice [${attack.join(',')}] / [${defend.join(',')}]`);
+}

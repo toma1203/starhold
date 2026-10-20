@@ -4,6 +4,7 @@ import { generateMap } from './map.ts';
 import { shuffle } from './rng.ts';
 import { buildHandlers } from './rules/build.ts';
 import { homeHandlers } from './rules/home.ts';
+import { militaryHandlers } from './rules/military.ts';
 import { pirateHandlers } from './rules/pirates.ts';
 import { rollHandlers } from './rules/roll.ts';
 import { tradeHandlers } from './rules/trade.ts';
@@ -27,6 +28,7 @@ export const HANDLERS: HandlerTable = {
   ...turnHandlers,
   ...buildHandlers,
   ...tradeHandlers,
+  ...militaryHandlers,
 };
 
 export function createGame(settings: GameSettings, seed: number): GameState {
