@@ -8,3 +8,4 @@ export * from './map.ts';
 export * from './state.ts';
 export * from './view.ts';
 export * from './game.ts';
+export * from './clone.ts';

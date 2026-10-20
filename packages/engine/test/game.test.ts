@@ -52,6 +52,15 @@ describe('createGame', () => {
     expect(playerById(state, 'p2').id).toBe('p2');
   });
 
+  it('createGame with 2 seats gives a 19-sector map and 2 homes', () => {
+    const state = createGame(settings(2), 11);
+    expect(state.sectorIds).toHaveLength(19);
+    expect(state.players).toHaveLength(2);
+    const homes = Object.values(state.sectors).filter((s) => s.owner !== null);
+    expect(homes.map((s) => s.id).sort()).toEqual(state.players.map((p) => p.homeId).sort());
+    expect(homes.every((s) => s.kind === 'home' && s.fleets === 3)).toBe(true);
+  });
+
   it('starting resources are 1 of each', () => {
     for (const p of createGame(settings(4), 3).players) {
       expect(p.resources).toEqual({ metal: 1, energy: 1, crystal: 1, biomass: 1 });

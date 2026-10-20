@@ -1,4 +1,5 @@
 import { expect } from 'vitest';
+import { clone } from '../src/clone.ts';
 import { createGame } from '../src/game.ts';
 import type {
   ActionResult,
@@ -27,7 +28,7 @@ export function makeGame(
 }
 
 export function withSector(state: GameState, id: SectorId, patch: Partial<Sector>): GameState {
-  const next = structuredClone(state);
+  const next = clone(state);
   const sector = next.sectors[id];
   if (!sector) throw new Error(`unknown sector ${id}`);
   next.sectors[id] = { ...sector, ...patch };
@@ -39,7 +40,7 @@ export function withResources(
   playerId: PlayerId,
   bag: Partial<ResourceBag>,
 ): GameState {
-  const next = structuredClone(state);
+  const next = clone(state);
   const player = next.players.find((p) => p.id === playerId);
   if (!player) throw new Error(`unknown player ${playerId}`);
   player.resources = { ...player.resources, ...bag };
@@ -47,7 +48,7 @@ export function withResources(
 }
 
 export function atPhase(state: GameState, phase: Phase, currentPlayerId?: PlayerId): GameState {
-  const next = structuredClone(state);
+  const next = clone(state);
   next.phase = phase;
   if (currentPlayerId !== undefined) {
     const index = next.players.findIndex((p) => p.id === currentPlayerId);

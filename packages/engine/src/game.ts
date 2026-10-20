@@ -1,3 +1,4 @@
+import { clone } from './clone.ts';
 import { emptyBag } from './costs.ts';
 import { generateMap } from './map.ts';
 import { shuffle } from './rng.ts';
@@ -32,7 +33,7 @@ export function createGame(settings: GameSettings, seed: number): GameState {
     return { ...seat, seat: i, resources, conquests: 0, homeId };
   });
   return {
-    settings: structuredClone(settings),
+    settings: clone(settings),
     sectors,
     sectorIds: map.sectorIds,
     players,
