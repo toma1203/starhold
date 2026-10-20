@@ -4,3 +4,4 @@ export * from './types.ts';
 export * from './rng.ts';
 export * from './hex.ts';
 export * from './costs.ts';
+export * from './map.ts';
