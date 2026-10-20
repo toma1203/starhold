@@ -3,6 +3,7 @@ import { emptyBag } from './costs.ts';
 import { generateMap } from './map.ts';
 import { shuffle } from './rng.ts';
 import { homeHandlers } from './rules/home.ts';
+import { pirateHandlers } from './rules/pirates.ts';
 import { rollHandlers } from './rules/roll.ts';
 import { turnHandlers } from './rules/turn.ts';
 import type {
@@ -19,6 +20,7 @@ import type {
 export const HANDLERS: HandlerTable = {
   ...homeHandlers,
   ...rollHandlers,
+  ...pirateHandlers,
   ...turnHandlers,
 };
 

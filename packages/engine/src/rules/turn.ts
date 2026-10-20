@@ -1,6 +1,7 @@
 import { clone } from '../clone.ts';
 import { currentPlayer } from '../state.ts';
 import type { GameEvent, GameState, HandlerTable } from '../types.ts';
+import { guardTurn } from './guard.ts';
 
 export interface Step {
   state: GameState;
@@ -31,8 +32,8 @@ export function advanceTurn(state: GameState): Step {
 export const turnHandlers: HandlerTable = {
   endTurn: (state, playerId, action) => {
     if (action.type !== 'endTurn') return { ok: false, error: 'err.wrongPhase' };
-    if (currentPlayer(state).id !== playerId) return { ok: false, error: 'err.notYourTurn' };
-    if (state.phase !== 'MAIN') return { ok: false, error: 'err.wrongPhase' };
+    const denied = guardTurn(state, playerId, 'MAIN');
+    if (denied) return { ok: false, error: denied };
     const { state: next, events } = advanceTurn(state);
     return { ok: true, state: next, events };
   },

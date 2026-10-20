@@ -1,12 +1,13 @@
 import { clone } from '../clone.ts';
 import { currentPlayer } from '../state.ts';
 import type { HandlerTable } from '../types.ts';
+import { guardTurn } from './guard.ts';
 
 export const homeHandlers: HandlerTable = {
   chooseHomeBonus: (state, playerId, action) => {
     if (action.type !== 'chooseHomeBonus') return { ok: false, error: 'err.wrongPhase' };
-    if (currentPlayer(state).id !== playerId) return { ok: false, error: 'err.notYourTurn' };
-    if (state.phase !== 'HOME_BONUS') return { ok: false, error: 'err.wrongPhase' };
+    const denied = guardTurn(state, playerId, 'HOME_BONUS');
+    if (denied) return { ok: false, error: denied };
     const next = clone(state);
     currentPlayer(next).resources[action.resource] += 1;
     next.phase = 'ROLL';

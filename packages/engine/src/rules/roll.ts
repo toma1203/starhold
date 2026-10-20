@@ -1,8 +1,10 @@
 import { clone } from '../clone.ts';
 import { addBag, emptyBag } from '../costs.ts';
 import { rollDie } from '../rng.ts';
-import { currentPlayer, playerById } from '../state.ts';
+import { playerById } from '../state.ts';
 import type { GameEvent, GameState, HandlerTable, PlayerId, ResourceBag } from '../types.ts';
+import { guardTurn } from './guard.ts';
+import { beginPirates } from './pirates.ts';
 
 /** Resources each player gains when `sum` is rolled; players who gain nothing are omitted. */
 export function productionFor(state: GameState, sum: number): Record<PlayerId, ResourceBag> {
@@ -22,19 +24,19 @@ export function productionFor(state: GameState, sum: number): Record<PlayerId, R
 export const rollHandlers: HandlerTable = {
   roll: (state, playerId, action) => {
     if (action.type !== 'roll') return { ok: false, error: 'err.wrongPhase' };
-    if (currentPlayer(state).id !== playerId) return { ok: false, error: 'err.notYourTurn' };
-    if (state.phase !== 'ROLL') return { ok: false, error: 'err.wrongPhase' };
+    const denied = guardTurn(state, playerId, 'ROLL');
+    if (denied) return { ok: false, error: denied };
     const next = clone(state);
     const [d1, r1] = rollDie(next.rng);
     const [d2, r2] = rollDie(r1);
     next.rng = r2;
     next.dice = [d1, d2];
     const events: GameEvent[] = [{ type: 'diceRolled', player: playerId, dice: [d1, d2] }];
-    next.phase = 'MAIN';
     if (d1 + d2 === 7) {
-      // Task 6: beginPirates
-      return { ok: true, state: next, events };
+      const pirates = beginPirates(next);
+      return { ok: true, state: pirates.state, events: [...events, ...pirates.events] };
     }
+    next.phase = 'MAIN';
     const gains = productionFor(next, d1 + d2);
     for (const [id, bag] of Object.entries(gains)) {
       const player = playerById(next, id);

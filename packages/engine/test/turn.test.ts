@@ -99,10 +99,10 @@ describe('roll', () => {
     expect(playerById(next, id).resources[resource]).toBe(before + 1);
   });
 
-  it('roll of 7 goes to MAIN without producing', () => {
+  it('roll of 7 hands over to the pirates without producing', () => {
     const { state } = withNumberedSectors(rollState(7), 7);
     const { state: next, events } = expectOk(applyAction(state, cur(state), { type: 'roll' }));
-    expect(next.phase).toBe('MAIN'); // Task 6: pirates take over here
+    expect(next.phase).toBe('PIRATE'); // nobody holds more than 7 cards at the start
     expect((next.dice?.[0] ?? 0) + (next.dice?.[1] ?? 0)).toBe(7);
     expect(events.map((e) => e.type)).toEqual(['diceRolled']);
     expect(next.players).toEqual(state.players);
