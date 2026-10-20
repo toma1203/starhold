@@ -2,13 +2,16 @@ import { clone } from './clone.ts';
 import { emptyBag } from './costs.ts';
 import { generateMap } from './map.ts';
 import { shuffle } from './rng.ts';
+import { buildHandlers } from './rules/build.ts';
 import { homeHandlers } from './rules/home.ts';
 import { pirateHandlers } from './rules/pirates.ts';
 import { rollHandlers } from './rules/roll.ts';
+import { tradeHandlers } from './rules/trade.ts';
 import { turnHandlers } from './rules/turn.ts';
 import type {
   Action,
   ActionResult,
+  GameEvent,
   GameSettings,
   GameState,
   HandlerTable,
@@ -22,6 +25,8 @@ export const HANDLERS: HandlerTable = {
   ...rollHandlers,
   ...pirateHandlers,
   ...turnHandlers,
+  ...buildHandlers,
+  ...tradeHandlers,
 };
 
 export function createGame(settings: GameSettings, seed: number): GameState {
@@ -60,9 +65,22 @@ export function createGame(settings: GameSettings, seed: number): GameState {
   };
 }
 
+/**
+ * Post-action hook run after every successful handler. Task 10 recomputes awards, victory points
+ * and the winner here; until then it is the identity.
+ */
+function afterAction(
+  state: GameState,
+  events: GameEvent[],
+): { state: GameState; events: GameEvent[] } {
+  return { state, events };
+}
+
 export function applyAction(state: GameState, playerId: PlayerId, action: Action): ActionResult {
   if (state.phase === 'FINISHED') return { ok: false, error: 'err.gameOver' };
   const handler = HANDLERS[action.type];
   if (!handler) return { ok: false, error: 'err.wrongPhase' };
-  return handler(state, playerId, action);
+  const result = handler(state, playerId, action);
+  if (!result.ok) return result;
+  return { ok: true, ...afterAction(result.state, result.events) };
 }
