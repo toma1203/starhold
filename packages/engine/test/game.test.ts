@@ -91,13 +91,27 @@ describe('applyAction', () => {
   });
 
   it('returns err.wrongPhase for actions without a handler', () => {
-    expectErr(applyAction(makeGame(), 'p1', { type: 'roll' }), 'err.wrongPhase');
+    const state = makeGame();
+    expectErr(
+      applyAction(state, currentPlayer(state).id, { type: 'cancelTrade' }),
+      'err.wrongPhase',
+    );
   });
 
   it('applyAction does not mutate input', () => {
     const state: GameState = deepFreeze(makeGame());
     const before = JSON.stringify(state);
-    expect(() => applyAction(state, 'p1', { type: 'endTurn' })).not.toThrow();
+    const id = currentPlayer(state).id;
+    const bonus = applyAction(state, id, { type: 'chooseHomeBonus', resource: 'metal' });
+    expect(bonus.ok).toBe(true);
     expect(JSON.stringify(state)).toBe(before);
+    const rolling = deepFreeze(atPhase(makeGame(), 'ROLL'));
+    const rollingBefore = JSON.stringify(rolling);
+    expect(applyAction(rolling, id, { type: 'roll' }).ok).toBe(true);
+    expect(JSON.stringify(rolling)).toBe(rollingBefore);
+    const main = deepFreeze(atPhase(makeGame(), 'MAIN'));
+    const mainBefore = JSON.stringify(main);
+    expect(applyAction(main, id, { type: 'endTurn' }).ok).toBe(true);
+    expect(JSON.stringify(main)).toBe(mainBefore);
   });
 });

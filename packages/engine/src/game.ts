@@ -2,19 +2,25 @@ import { clone } from './clone.ts';
 import { emptyBag } from './costs.ts';
 import { generateMap } from './map.ts';
 import { shuffle } from './rng.ts';
+import { homeHandlers } from './rules/home.ts';
+import { rollHandlers } from './rules/roll.ts';
+import { turnHandlers } from './rules/turn.ts';
 import type {
   Action,
   ActionResult,
   GameSettings,
   GameState,
+  HandlerTable,
   PlayerId,
   PlayerState,
 } from './types.ts';
 
-export type Handler = (s: GameState, p: PlayerId, a: Action) => ActionResult;
-
 /** Rule modules register their handlers here (imported and spread in by later tasks). */
-export const HANDLERS: Partial<Record<Action['type'], Handler>> = {};
+export const HANDLERS: HandlerTable = {
+  ...homeHandlers,
+  ...rollHandlers,
+  ...turnHandlers,
+};
 
 export function createGame(settings: GameSettings, seed: number): GameState {
   const count = settings.seats.length;

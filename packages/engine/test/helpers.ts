@@ -1,6 +1,7 @@
 import { expect } from 'vitest';
 import { clone } from '../src/clone.ts';
 import { createGame } from '../src/game.ts';
+import { rollDie } from '../src/rng.ts';
 import type {
   ActionResult,
   ErrorCode,
@@ -66,4 +67,14 @@ export function expectOk(result: ActionResult): { state: GameState; events: Game
 export function expectErr(result: ActionResult, code: ErrorCode): void {
   expect(result.ok).toBe(false);
   if (!result.ok) expect(result.error).toBe(code);
+}
+
+/** Smallest rng seed for which two consecutive `rollDie` calls sum to `sum` (2..12). */
+export function seedForSum(sum: number): number {
+  for (let seed = 0; seed < 100000; seed++) {
+    const [a, next] = rollDie(seed);
+    const [b] = rollDie(next);
+    if (a + b === sum) return seed;
+  }
+  throw new Error(`no seed found for dice sum ${sum}`);
 }

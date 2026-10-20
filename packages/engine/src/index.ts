@@ -9,3 +9,5 @@ export * from './state.ts';
 export * from './view.ts';
 export * from './game.ts';
 export * from './clone.ts';
+export { productionFor } from './rules/roll.ts';
+export { startTurn, advanceTurn } from './rules/turn.ts';

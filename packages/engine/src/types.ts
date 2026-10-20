@@ -130,3 +130,6 @@ export type ErrorCode =
   | 'err.gameOver';
 export type ActionResult =
   { ok: true; state: GameState; events: GameEvent[] } | { ok: false; error: ErrorCode };
+export type Handler = (s: GameState, p: PlayerId, a: Action) => ActionResult;
+/** What each rules/*.ts module exports; game.ts spreads these into its dispatch table. */
+export type HandlerTable = Partial<Record<Action['type'], Handler>>;
