@@ -489,6 +489,12 @@ describe('PlayerList', () => {
   const stat = (r: HTMLElement, label: string) =>
     within(r).getByText(label, { selector: 'dt' }).nextElementSibling!.textContent;
 
+  it('names the player list after its heading so it can be found by role', () => {
+    list(main(), 'p1');
+    const players = screen.getByRole('list', { name: t('game.players') });
+    expect(within(players).getAllByRole('listitem')).toHaveLength(3);
+  });
+
   it('shows marker, VP, cards and fleets per player', () => {
     list(main(), 'p1');
     const mine = row('Pilot 1');

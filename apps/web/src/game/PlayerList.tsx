@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import { victoryPoints } from '@starhold/engine';
 import type { PlayerView } from '@starhold/engine';
 import type { SeatInfo } from '@starhold/protocol';
@@ -14,11 +15,12 @@ function fleetTotal(view: PlayerView, id: string): number {
 /** Everybody at the table: colour and shape, score, cards, fleets, awards and presence. */
 export function PlayerList({ view, seats }: { view: PlayerView; seats: SeatInfo[] }) {
   const t = useT();
+  const headingId = useId();
   const currentId = view.players[view.current]?.id;
   return (
     <section className="player-list">
-      <h2>{t('game.players')}</h2>
-      <ul className="players">
+      <h2 id={headingId}>{t('game.players')}</h2>
+      <ul className="players" aria-labelledby={headingId}>
         {view.players.map((player) => {
           const seat = seats.find((s) => s.playerId === player.id);
           const presence =

@@ -117,6 +117,13 @@ describe('LobbyScreen', () => {
     expect(actions.removeBot).toHaveBeenCalledWith('b1');
   });
 
+  it('names the seat list after its heading so it can be found by role', () => {
+    setRoom(room());
+    render(<LobbyScreen />);
+    const seats = screen.getByRole('list', { name: t('lobby.players') });
+    expect(within(seats).getAllByRole('listitem')).toHaveLength(2);
+  });
+
   it('gives every seat its colour and shape', () => {
     setRoom(room());
     render(<LobbyScreen />);

@@ -109,6 +109,7 @@ export function LobbyScreen() {
   const startGame = useGameStore((s) => s.startGame);
   const leaveRoom = useGameStore((s) => s.leaveRoom);
   const needPlayersId = useId();
+  const playersId = useId();
 
   if (room === null) return null;
   const isHost = room.hostId === room.you;
@@ -123,8 +124,8 @@ export function LobbyScreen() {
       </header>
 
       <section className="panel">
-        <h2>{t('lobby.players')}</h2>
-        <ul className="seats">
+        <h2 id={playersId}>{t('lobby.players')}</h2>
+        <ul className="seats" aria-labelledby={playersId}>
           {room.seats.map((seat, index) => (
             <li key={seat.playerId} className="seat">
               <PlayerMarker seat={index} />
