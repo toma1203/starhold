@@ -9,6 +9,7 @@ import {
   saveMuted,
   saveNickname,
   saveSession,
+  pruneStaleSessions,
 } from '../src/net/session.ts';
 
 const TOKEN = 'a'.repeat(32);
@@ -25,6 +26,17 @@ describe('session storage', () => {
     clearSession('ABCDE');
     expect(loadSession('ABCDE')).toBeNull();
     expect(loadSession('FGHJK')).not.toBeNull();
+  });
+
+  it('stamps new sessions with the save time', () => {
+    vi.spyOn(Date, 'now').mockReturnValue(1_700_000_000_000);
+    saveSession('ABCDE', { playerId: 'p1', token: TOKEN });
+    expect(JSON.parse(localStorage.getItem('starhold.session.ABCDE') ?? '')).toEqual({
+      playerId: 'p1',
+      token: TOKEN,
+      savedAt: 1_700_000_000_000,
+    });
+    expect(loadSession('ABCDE')).toEqual({ playerId: 'p1', token: TOKEN });
   });
 
   it('returns null for corrupt or wrongly shaped stored sessions', () => {
@@ -80,5 +92,40 @@ describe('session storage', () => {
     expect(loadSession('ABCDE')).toBeNull();
     expect(() => clearSession('ABCDE')).not.toThrow();
     expect(loadMuted()).toBe(false);
+  });
+});
+
+describe('pruneStaleSessions', () => {
+  const HOUR = 3_600_000;
+  const NOW = 1_700_000_000_000;
+  const stored = (code: string, savedAt?: number) =>
+    localStorage.setItem(
+      `starhold.session.${code}`,
+      JSON.stringify({
+        playerId: 'p1',
+        token: TOKEN,
+        ...(savedAt === undefined ? {} : { savedAt }),
+      }),
+    );
+
+  it('removes sessions older than 24 hours and sessions without a timestamp', () => {
+    stored('FRESH', NOW - 23 * HOUR);
+    stored('OLDER', NOW - 25 * HOUR);
+    stored('LEGAC');
+    localStorage.setItem('starhold.session.CORRU', '{not json');
+    localStorage.setItem('starhold.nickname', 'Nova');
+    pruneStaleSessions(NOW);
+    expect(loadSession('FRESH')).not.toBeNull();
+    expect(localStorage.getItem('starhold.session.OLDER')).toBeNull();
+    expect(localStorage.getItem('starhold.session.LEGAC')).toBeNull();
+    expect(localStorage.getItem('starhold.session.CORRU')).toBeNull();
+    expect(loadNickname()).toBe('Nova');
+  });
+
+  it('does not throw when localStorage is unavailable', () => {
+    vi.spyOn(window, 'localStorage', 'get').mockImplementation(() => {
+      throw new Error('blocked');
+    });
+    expect(() => pruneStaleSessions(NOW)).not.toThrow();
   });
 });

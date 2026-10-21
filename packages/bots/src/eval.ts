@@ -226,3 +226,11 @@ export function leaderAmongOthers(view: PlayerView, me: PlayerId): PlayerId | nu
   }
   return best;
 }
+
+/** The resource `me` holds least of (the home bonus pick, spec �2.3); ties go to `RESOURCES` order. */
+export function leastHeld(view: PlayerView, me: PlayerId): Resource {
+  const hand = view.players.find((p) => p.id === me)?.resources;
+  const held = (r: Resource): number => hand?.[r] ?? 0;
+  const lowest = Math.min(...RESOURCES.map(held));
+  return RESOURCES.find((r) => held(r) === lowest) ?? 'metal';
+}

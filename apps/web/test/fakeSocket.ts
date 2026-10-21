@@ -12,6 +12,8 @@ interface Emitted {
 /** Minimal stand-in for a socket.io client: records emits, lets tests fire server events. */
 export class FakeSocket {
   connected = false;
+  /** How many times the app asked the transport to (re)connect by hand. */
+  connectCalls = 0;
   readonly emitted: Emitted[] = [];
   private readonly handlers = new Map<string, Handler[]>();
 
@@ -22,6 +24,11 @@ export class FakeSocket {
 
   emit(event: string, ...args: unknown[]): this {
     this.emitted.push({ event, args });
+    return this;
+  }
+
+  connect(): this {
+    this.connectCalls += 1;
     return this;
   }
 

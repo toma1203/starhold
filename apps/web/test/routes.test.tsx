@@ -98,14 +98,21 @@ describe('room route', () => {
     expect(screen.getByText(t('lobby.room', { code: 'ABCDE' }))).toBeTruthy();
   });
 
-  it('a failed rejoin falls back to the nickname form', async () => {
+  it('a failed rejoin explains it and sends the player home', async () => {
     visit('/room/ABCDE');
     saveSession('ABCDE', { playerId: 'p1', token: TOKEN });
-    render(<AppRoutes />);
+    render(
+      <>
+        <AppRoutes />
+        <Toasts />
+      </>,
+    );
     act(() => socket.trigger('connect'));
     await act(async () => socket.ack('room:rejoin', { ok: false, error: 'err.roomNotFound' }));
     expect(loadSession('ABCDE')).toBeNull();
-    expect(screen.getByLabelText(t('home.nickname'))).toBeTruthy();
+    expect(window.location.pathname).toBe('/');
+    expect(screen.getByRole('button', { name: t('home.create') })).toBeTruthy();
+    expect(screen.getByText(t('room.closed.gone'))).toBeTruthy();
   });
 
   it('rejoins when the page is opened while the socket is already online', () => {

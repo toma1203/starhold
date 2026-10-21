@@ -1,23 +1,12 @@
 import { legalActions, RESOURCES } from '@starhold/engine';
 import type { Action, PlayerId, PlayerView, Resource, ResourceBag } from '@starhold/engine';
+import { leastHeld } from './eval.ts';
 
 const BUILD_CHANCE = 0.6;
 
 /** Uniform pick; `random()` is in [0, 1). */
 function pickRandom<T>(items: readonly T[], random: () => number): T | undefined {
   return items[Math.floor(random() * items.length)];
-}
-
-function leastHeld(view: PlayerView, me: PlayerId, random: () => number): Resource {
-  const hand = view.players.find((p) => p.id === me)?.resources;
-  const held = (r: Resource): number => hand?.[r] ?? 0;
-  const lowest = Math.min(...RESOURCES.map(held));
-  return (
-    pickRandom(
-      RESOURCES.filter((r) => held(r) === lowest),
-      random,
-    ) ?? 'metal'
-  );
 }
 
 /** A random discard of exactly `count` cards from the hand. */
@@ -50,7 +39,7 @@ export function chooseEasy(view: PlayerView, me: PlayerId, random: () => number)
   const legal = legalActions(view, me);
   switch (view.phase) {
     case 'HOME_BONUS':
-      return { type: 'chooseHomeBonus', resource: leastHeld(view, me, random) };
+      return { type: 'chooseHomeBonus', resource: leastHeld(view, me) };
     case 'ROLL':
       return legal.find((a) => a.type === 'roll') ?? null;
     case 'PIRATE': {

@@ -2,11 +2,13 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App.tsx';
 import { installAudioUnlock } from './audio/sfx.ts';
+import { pruneStaleSessions } from './net/session.ts';
 import { createSocket } from './net/socket.ts';
 import { bindSocket, useGameStore } from './store/gameStore.ts';
 import './styles/tokens.css';
 import './styles/app.css';
 
+pruneStaleSessions();
 document.documentElement.lang = useGameStore.getState().locale;
 installAudioUnlock();
 bindSocket(createSocket());

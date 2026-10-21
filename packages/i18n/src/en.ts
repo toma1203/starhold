@@ -40,6 +40,7 @@ export const en = {
   'room.closed.expired': 'This room expired.',
   'room.closed.serverRestart': 'The server is restarting. Please reconnect in a moment.',
   'room.closed.replaced': 'This game was opened in another tab or device.',
+  'room.closed.gone': 'This game no longer exists — the room expired or the server restarted.',
 
   // Home screen
   'home.title': 'Starhold',

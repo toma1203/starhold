@@ -207,15 +207,37 @@ describe('decide', () => {
     expect(decideFor(answered.state, 'p2', 'normal')).toBeNull();
   });
 
-  it('easy bot picks the resource it holds least as its home bonus', () => {
+  it('every bot level picks the resource it holds least as its home bonus', () => {
     const state0 = makeState(2, 17);
     const first = state0.players[0]?.id as string;
     const state = withHand(state0, first, bag(3, 2, 0, 4));
     expect(state.phase).toBe('HOME_BONUS');
-    expect(decideFor(state, first, 'easy')).toEqual({
-      type: 'chooseHomeBonus',
-      resource: 'crystal',
-    });
+    for (const level of LEVELS) {
+      expect(decideFor(state, first, level), level).toEqual({
+        type: 'chooseHomeBonus',
+        resource: 'crystal',
+      });
+    }
+  });
+
+  it('home bonus ties go to the first resource in RESOURCES order', () => {
+    const state0 = makeState(2, 17);
+    const first = state0.players[0]?.id as string;
+    const tied = withHand(state0, first, bag(3, 1, 1, 2)); // energy and crystal tie for least
+    const allEqual = withHand(state0, first, bag(1, 1, 1, 1));
+    for (const level of LEVELS) {
+      for (let seed = 1; seed <= 5; seed++) {
+        const random = seededRandom(seed);
+        expect(decide(viewFor(tied, first), first, level, random), level).toEqual({
+          type: 'chooseHomeBonus',
+          resource: 'energy',
+        });
+        expect(decide(viewFor(allEqual, first), first, level, random), level).toEqual({
+          type: 'chooseHomeBonus',
+          resource: 'metal',
+        });
+      }
+    }
   });
 
   it('easy bot never fortifies and attacks only with 3 dice', () => {

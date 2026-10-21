@@ -33,8 +33,37 @@ function remove(key: string): void {
   }
 }
 
+/** Seats are kept for a day; the server forgets a room long before that. */
+const SESSION_MAX_AGE_MS = 24 * 3_600_000;
+
 export function saveSession(code: string, session: Session): void {
-  write(sessionKey(code), JSON.stringify(session));
+  write(sessionKey(code), JSON.stringify({ ...session, savedAt: Date.now() }));
+}
+
+/**
+ * Removes stored seats older than 24 hours, and ones without a save time (written before
+ * stamps existed). Run once at boot so `starhold.session.*` entries do not pile up.
+ */
+export function pruneStaleSessions(now: number = Date.now()): void {
+  try {
+    const stale: string[] = [];
+    const prefix = sessionKey('');
+    for (let i = 0; i < window.localStorage.length; i += 1) {
+      const key = window.localStorage.key(i);
+      if (key === null || !key.startsWith(prefix)) continue;
+      let savedAt: unknown;
+      try {
+        savedAt = (JSON.parse(window.localStorage.getItem(key) ?? 'null') as { savedAt?: unknown })
+          ?.savedAt;
+      } catch {
+        savedAt = undefined;
+      }
+      if (typeof savedAt !== 'number' || now - savedAt > SESSION_MAX_AGE_MS) stale.push(key);
+    }
+    for (const key of stale) remove(key);
+  } catch {
+    // Storage unavailable: nothing to prune.
+  }
 }
 
 export function loadSession(code: string): Session | null {

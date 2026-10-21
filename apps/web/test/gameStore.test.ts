@@ -163,6 +163,16 @@ describe('game:state is scoped to its room', () => {
     expect(s.log).toEqual([]);
   });
 
+  it('a failed rejoin of the room on screen says so and goes back home', async () => {
+    visit('/room/ABCDE');
+    saveSession('ABCDE', { playerId: 'p1', token: TOKEN });
+    socket.trigger('connect');
+    socket.ack('room:rejoin', { ok: false, error: 'err.roomNotFound' });
+    await flush();
+    expect(useGameStore.getState().toasts.map((x) => x.key)).toEqual(['room.closed.gone']);
+    expect(window.location.pathname).toBe('/');
+  });
+
   it('a failed rejoin leaves a different room alone', async () => {
     visit('/room/ABCDE');
     saveSession('FGHJK', { playerId: 'p1', token: TOKEN });
@@ -173,6 +183,23 @@ describe('game:state is scoped to its room', () => {
     await flush();
     expect(useGameStore.getState().room?.code).toBe('ABCDE');
     expect(useGameStore.getState().game?.version).toBe(4);
+    expect(useGameStore.getState().toasts).toEqual([]);
+    expect(window.location.pathname).toBe('/room/ABCDE');
+  });
+});
+
+describe('failed reconnect attempts', () => {
+  it('counts consecutive connect errors and resets on connect', () => {
+    expect(useGameStore.getState().reconnectFailures).toBe(0);
+    for (let i = 0; i < 4; i++) socket.trigger('connect_error', new Error('down'));
+    expect(useGameStore.getState().reconnectFailures).toBe(4);
+    socket.trigger('connect');
+    expect(useGameStore.getState().reconnectFailures).toBe(0);
+  });
+
+  it('retryConnect asks the socket to connect again', () => {
+    useGameStore.getState().retryConnect();
+    expect(socket.connectCalls).toBe(1);
   });
 });
 

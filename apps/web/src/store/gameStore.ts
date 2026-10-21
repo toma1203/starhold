@@ -41,6 +41,8 @@ export interface GameStore {
   connection: 'connecting' | 'online' | 'offline';
   /** True once the socket has connected at least once (the first connect is not a "reconnect"). */
   hasConnected: boolean;
+  /** Connect errors since the last successful connect; the banner offers a manual retry at 3. */
+  reconnectFailures: number;
   room: RoomInfo | null;
   game: GameStatePayload | null;
   log: LogEntry[];
@@ -61,6 +63,8 @@ export interface GameStore {
   joinRoom: (code: string, name: string) => Promise<boolean>;
   rejoin: (code: string) => Promise<boolean>;
   leaveRoom: () => void;
+  /** Asks the transport to connect right now (the "Try again" button on the banner). */
+  retryConnect: () => void;
   sendAction: (a: Action) => void;
   addBot: (level: BotLevel) => void;
   removeBot: (playerId: string) => void;
@@ -129,6 +133,7 @@ export const useGameStore = create<GameStore>()((set, get) => {
   return {
     connection: 'connecting',
     hasConnected: false,
+    reconnectFailures: 0,
     room: null,
     game: null,
     log: [],
@@ -174,12 +179,16 @@ export const useGameStore = create<GameStore>()((set, get) => {
         live.emit('room:rejoin', { code, token: session.token }, (ack) => {
           rejoining.delete(code);
           if (ack.ok) {
+            // Re-saving renews the session's 24 h lifetime while the player keeps coming back.
+            saveSession(ack.code, { playerId: ack.playerId, token: ack.token });
             set({ activeCode: ack.code });
             resolve(true);
             return;
           }
           clearSession(code);
+          const onScreen = get().room?.code === code || codeFromPath() === code;
           set((s) => ({
+            ...(onScreen ? withToast(s, 'room.closed.gone') : {}),
             activeCode: s.activeCode === code ? null : s.activeCode,
             sessionTick: s.sessionTick + 1,
             // Whatever the client still shows for that room is stale now.
@@ -187,6 +196,8 @@ export const useGameStore = create<GameStore>()((set, get) => {
             ...(s.gameCode === code ? { game: null, gameCode: null } : {}),
             ...(s.logCode === code ? { log: [], logCode: null } : {}),
           }));
+          // Spec §5: an unknown or expired room means a message and back to the start.
+          if (onScreen) navigate('/');
           resolve(false);
         });
       });
@@ -208,6 +219,8 @@ export const useGameStore = create<GameStore>()((set, get) => {
         sessionTick: s.sessionTick + 1,
       }));
     },
+
+    retryConnect: () => void socket?.connect(),
 
     sendAction: (a) => void socket?.emit('game:action', a),
     addBot: (level) => void socket?.emit('room:addBot', { level }),
@@ -240,7 +253,7 @@ export function bindSocket(live: AppSocket): void {
   const { setState: set, getState: get } = useGameStore;
 
   live.on('connect', () => {
-    set({ connection: 'online', hasConnected: true });
+    set({ connection: 'online', hasConnected: true, reconnectFailures: 0 });
     const code = get().room?.code ?? codeFromPath();
     if (code !== null && loadSession(code) !== null) void get().rejoin(code);
   });
@@ -250,7 +263,9 @@ export function bindSocket(live: AppSocket): void {
     set({ connection: 'offline', activeCode: null });
   });
 
-  live.on('connect_error', () => set({ connection: 'offline' }));
+  live.on('connect_error', () =>
+    set((s) => ({ connection: 'offline', reconnectFailures: s.reconnectFailures + 1 })),
+  );
 
   live.on('room:state', (info) =>
     set((s) => ({

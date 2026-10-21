@@ -1,12 +1,14 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { act, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { createT, en, hr } from '@starhold/i18n';
 import { readWebFile } from './paths.ts';
 import { App } from '../src/App.tsx';
 import { LobbyScreen } from '../src/screens/LobbyScreen.tsx';
 import { Toasts } from '../src/ui/Toasts.tsx';
 import { MuteToggle } from '../src/ui/MuteToggle.tsx';
-import { useGameStore } from '../src/store/gameStore.ts';
+import { bindSocket, useGameStore } from '../src/store/gameStore.ts';
+import { FakeSocket } from './fakeSocket.ts';
 import { loadMuted } from '../src/net/session.ts';
 import type { RoomInfo } from '@starhold/protocol';
 
@@ -173,6 +175,25 @@ describe('connection banner (R18e)', () => {
     );
     render(<App />);
     expect(reconnecting()).toHaveLength(1);
+  });
+
+  it('offers "Try again" only after 3 failed attempts, and the button reconnects', async () => {
+    const socket = new FakeSocket();
+    bindSocket(socket.asSocket());
+    socket.trigger('connect');
+    socket.trigger('disconnect');
+    render(<App />);
+    const retry = () => screen.queryByRole('button', { name: t('common.retry') });
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      act(() => socket.trigger('connect_error', new Error('down')));
+      expect(retry(), `after ${attempt} failures`).toBeNull();
+    }
+    act(() => socket.trigger('connect_error', new Error('down')));
+    expect(reconnecting()).toHaveLength(1);
+    await userEvent.setup().click(screen.getByRole('button', { name: t('common.retry') }));
+    expect(socket.connectCalls).toBe(1);
+    act(() => socket.trigger('connect'));
+    expect(retry()).toBeNull();
   });
 
   it('hides it once back online', () => {

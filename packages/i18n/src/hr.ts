@@ -36,6 +36,8 @@ export const hr: Record<MessageKey, string> = {
   'room.closed.expired': 'Ova soba je istekla.',
   'room.closed.serverRestart': 'Server se ponovno pokreće. Pokušaj se ponovno spojiti za trenutak.',
   'room.closed.replaced': 'Ova igra je otvorena u drugoj kartici ili na drugom uređaju.',
+  'room.closed.gone':
+    'Ova igra više ne postoji — soba je istekla ili je poslužitelj ponovno pokrenut.',
 
   // Home screen
   'home.title': 'Starhold',

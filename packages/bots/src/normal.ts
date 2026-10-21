@@ -19,6 +19,7 @@ import {
   conquestVp,
   evalBag,
   leaderAmongOthers,
+  leastHeld,
   resourceWeights,
   sectorValue,
 } from './eval.ts';
@@ -277,14 +278,6 @@ function scoreMain(ctx: Context, action: Action): number {
 
 // ---- Other phases ----------------------------------------------------------------------------
 
-function homeBonusScore(ctx: Context, resource: Resource): number {
-  const after = { ...ctx.hand, [resource]: ctx.hand[resource] + 1 };
-  let score = ctx.weights[resource];
-  if (!hasAtLeast(ctx.hand, COSTS.colony) && hasAtLeast(after, COSTS.colony)) score += 6;
-  else if (!hasAtLeast(ctx.hand, COSTS.starbase) && hasAtLeast(after, COSTS.starbase)) score += 3;
-  return score;
-}
-
 function pirateScore(ctx: Context, sector: Sector, leader: PlayerId | null): number {
   if (sector.owner === ctx.me) return -Infinity;
   if (sector.owner === null) return 0;
@@ -305,11 +298,7 @@ export function chooseNormal(view: PlayerView, me: PlayerId, random: () => numbe
   };
   switch (view.phase) {
     case 'HOME_BONUS':
-      return pickBest(
-        legal.filter((a) => a.type === 'chooseHomeBonus'),
-        (a) => (a.type === 'chooseHomeBonus' ? homeBonusScore(ctx, a.resource) : -Infinity),
-        random,
-      );
+      return { type: 'chooseHomeBonus', resource: leastHeld(view, me) };
     case 'ROLL':
       return legal.find((a) => a.type === 'roll') ?? null;
     case 'PIRATE': {
