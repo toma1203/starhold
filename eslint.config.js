@@ -19,4 +19,9 @@ export default tseslint.config(
       'no-console': ['error', { allow: ['warn', 'error'] }],
     },
   },
+  {
+    // The structured logger is the one place that writes to stdout.
+    files: ['apps/server/src/log.ts'],
+    rules: { 'no-console': 'off' },
+  },
 );

@@ -207,6 +207,33 @@ describe('Room lobby', () => {
     expect(room.info(c.playerId).hostId).toBe(c.playerId);
   });
 
+  it('a disconnected lobby host passes the host role to the next connected human', () => {
+    const { room, hooks } = setup();
+    const a = join(room, 'Ada');
+    addBot(room, a.playerId, 'easy');
+    const b = join(room, 'Bo');
+    const c = join(room, 'Cy');
+    room.markDisconnected(c.playerId);
+    const before = hooks.broadcasts;
+    room.markDisconnected(a.playerId);
+    const info = room.info(b.playerId);
+    expect(info.hostId).toBe(b.playerId);
+    expect(info.seats.find((s) => s.playerId === a.playerId)?.connected).toBe(false);
+    expect(hooks.broadcasts).toBe(before + 1);
+    // The old host reconnects as a plain player; the host stays with Bo.
+    room.rejoin(a.token);
+    expect(room.info(a.playerId).hostId).toBe(b.playerId);
+  });
+
+  it('the host stays host when nobody else is connected', () => {
+    const { room } = setup();
+    const a = join(room, 'Ada');
+    const b = join(room, 'Bo');
+    room.markDisconnected(b.playerId);
+    room.markDisconnected(a.playerId);
+    expect(room.info(a.playerId).hostId).toBe(a.playerId);
+  });
+
   it('last human leaving the lobby drops bots; the next joiner becomes host', () => {
     const { room } = setup();
     const a = join(room, 'Ada');

@@ -43,6 +43,12 @@ export class RoomManager {
     return room && playerId ? { room, playerId } : null;
   }
 
+  /** Stops every room's timers and forgets all rooms (server shutdown). */
+  disposeAll(): void {
+    for (const room of this.rooms.values()) room.dispose();
+    this.rooms.clear();
+  }
+
   /** Deletes expired rooms and returns their codes. */
   sweep(now: number): string[] {
     const deleted: string[] = [];

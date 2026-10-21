@@ -652,6 +652,24 @@ describe('Room game loop: whole games', () => {
     manager.delete(room.code);
     expect(vi.getTimerCount()).toBe(0);
   });
+
+  it('disposeAll stops the timers of every room and empties the registry', () => {
+    const hooks = makeHooks();
+    hooks.now = () => Date.now();
+    const manager = new RoomManager(testConfig({ botDelayMs: [10, 10] }), hooks);
+    for (let i = 0; i < 3; i += 1) {
+      const room = manager.create();
+      if ('error' in room) throw new Error(room.error);
+      const host = room.addHuman('Ada');
+      if ('error' in host) throw new Error(host.error);
+      room.addBot(host.playerId, 'normal');
+      room.start(host.playerId);
+    }
+    expect(vi.getTimerCount()).toBeGreaterThan(0);
+    manager.disposeAll();
+    expect(vi.getTimerCount()).toBe(0);
+    expect(manager.size).toBe(0);
+  });
 });
 
 describe('Room rematch', () => {

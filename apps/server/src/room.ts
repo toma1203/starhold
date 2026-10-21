@@ -121,6 +121,10 @@ export class Room {
     if (!seat || seat.isBot || !seat.connected) return;
     seat.connected = false;
     if (this.phase === 'IN_GAME') seat.afk = true;
+    // A lobby host who drops hands the role on at once (their seat is kept for a reload).
+    if (this.phase === 'LOBBY' && this.hostId === playerId && !this.isEmptyOfHumans()) {
+      this.transferHost(this.seats.indexOf(seat) + 1);
+    }
     this.session?.schedule();
     this.touch();
   }

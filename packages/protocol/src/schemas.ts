@@ -74,3 +74,13 @@ export const SettingsSchema = z
 export type RoomSettings = z.infer<typeof SettingsSchema>;
 
 export const DEFAULT_ROOM_SETTINGS: RoomSettings = { targetVp: 8, turnSeconds: 90 };
+
+// --- room / lobby payloads (everything that is not a game action) ---------------
+
+export const CreateRoomPayloadSchema = z.object({ name: NicknameSchema }).strict();
+export const JoinRoomPayloadSchema = z
+  .object({ code: RoomCodeSchema, name: NicknameSchema })
+  .strict();
+export const RejoinPayloadSchema = z.object({ code: RoomCodeSchema, token: TokenSchema }).strict();
+export const AddBotPayloadSchema = z.object({ level: z.enum(['easy', 'normal']) }).strict();
+export const RemoveBotPayloadSchema = z.object({ playerId: IdSchema }).strict();
