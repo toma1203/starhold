@@ -40,10 +40,8 @@ export interface SectorHexProps {
 
 function baseLabel(p: SectorHexProps, t: Translate): string {
   if (p.kind === 'resource' && p.resource !== null) {
-    return t('map.sector.resource', {
-      resource: t(spaceTheme.resources[p.resource].labelKey),
-      number: p.number ?? '',
-    });
+    const resource = t(spaceTheme.resources[p.resource].labelKey);
+    return p.number === null ? resource : t('map.sector.resource', { resource, number: p.number });
   }
   return t(p.kind === 'home' ? 'theme.space.sector.home' : 'theme.space.sector.nebula');
 }
@@ -67,7 +65,6 @@ function ariaLabel(p: SectorHexProps, t: Translate, locale: Locale): string {
   if (p.structure === 'starbase') parts.push(t('theme.space.unit.starbase'));
   if (p.tradeStation) parts.push(t('theme.space.sector.tradeStation'));
   if (p.hasPirate) parts.push(t('theme.space.unit.pirates'));
-  if (p.selected) parts.push(t('map.selected'));
   if (p.target) parts.push(t('map.target'));
   return parts.join(', ');
 }

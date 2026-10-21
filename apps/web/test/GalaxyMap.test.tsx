@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createT } from '@starhold/i18n';
 import type { PlayerView, SectorId } from '@starhold/engine';
@@ -186,6 +186,16 @@ describe('GalaxyMap labels', () => {
   });
 });
 
+describe('GalaxyMap label edge cases', () => {
+  it('has no trailing space when a resource sector has no number', () => {
+    let state = inPhase(makeState(3, 1), 'MAIN', 0);
+    const spot = state.sectorIds.find((id) => state.sectors[id]?.kind === 'resource') as SectorId;
+    state = patchSector(state, spot, { resource: 'metal', number: null });
+    renderMap(viewOf(state, 'p1'));
+    expect(hexEl(spot).getAttribute('aria-label')).toMatch(/^Metal, /);
+  });
+});
+
 describe('GalaxyMap keyboard and pointer selection', () => {
   it('Enter on a hex calls onSectorClick', async () => {
     const view = baseView();
@@ -249,6 +259,80 @@ describe('GalaxyMap keyboard and pointer selection', () => {
   });
 });
 
+describe('GalaxyMap lost pointers', () => {
+  function tapStillWorks(view: PlayerView, onSectorClick: (id: SectorId) => void) {
+    const id = view.sectorIds[2] as SectorId;
+    fireEvent.pointerDown(hexEl(id), {
+      pointerId: 9,
+      pointerType: 'touch',
+      clientX: 10,
+      clientY: 10,
+    });
+    fireEvent.pointerUp(mapSvg(), { pointerId: 9, pointerType: 'touch', clientX: 10, clientY: 10 });
+    fireEvent.click(hexEl(id));
+    expect(onSectorClick).toHaveBeenCalledTimes(1);
+    expect(onSectorClick).toHaveBeenCalledWith(id);
+  }
+
+  it('a cancelled touch does not leave the map in pinch mode: the next tap still selects', () => {
+    const view = baseView();
+    const { onSectorClick } = renderMap(view);
+    fireEvent.pointerDown(mapSvg(), {
+      pointerId: 5,
+      pointerType: 'touch',
+      clientX: 50,
+      clientY: 50,
+    });
+    fireEvent.pointerCancel(mapSvg(), { pointerId: 5, pointerType: 'touch' });
+    tapStillWorks(view, onSectorClick);
+  });
+
+  it('a touch whose pointer capture is lost does not suppress later taps', () => {
+    const view = baseView();
+    const { onSectorClick } = renderMap(view);
+    fireEvent.pointerDown(mapSvg(), {
+      pointerId: 5,
+      pointerType: 'touch',
+      clientX: 50,
+      clientY: 50,
+    });
+    fireEvent.lostPointerCapture(mapSvg(), { pointerId: 5, pointerType: 'touch' });
+    tapStillWorks(view, onSectorClick);
+  });
+
+  it('a pointer that leaves with no buttons pressed is forgotten', () => {
+    const view = baseView();
+    const { onSectorClick } = renderMap(view);
+    fireEvent.pointerDown(mapSvg(), {
+      pointerId: 5,
+      pointerType: 'touch',
+      clientX: 50,
+      clientY: 50,
+    });
+    fireEvent.pointerLeave(mapSvg(), { pointerId: 5, pointerType: 'touch', buttons: 0 });
+    tapStillWorks(view, onSectorClick);
+  });
+
+  it('a dragged-then-cancelled gesture does not keep suppressing clicks', () => {
+    const view = baseView();
+    const { onSectorClick } = renderMap(view);
+    fireEvent.pointerDown(mapSvg(), {
+      pointerId: 5,
+      pointerType: 'touch',
+      clientX: 50,
+      clientY: 50,
+    });
+    fireEvent.pointerMove(mapSvg(), {
+      pointerId: 5,
+      pointerType: 'touch',
+      clientX: 90,
+      clientY: 90,
+    });
+    fireEvent.lostPointerCapture(mapSvg(), { pointerId: 5, pointerType: 'touch' });
+    tapStillWorks(view, onSectorClick);
+  });
+});
+
 describe('GalaxyMap highlights', () => {
   it('outlines legal targets of the selected sector and says so in their label', () => {
     const view = baseView();
@@ -263,7 +347,8 @@ describe('GalaxyMap highlights', () => {
       expect(hexEl(id).querySelector('.hex-target')).not.toBeNull();
     }
     expect(hexEl(home).getAttribute('data-target')).toBe('false');
-    expect(hexEl(home).getAttribute('aria-label')).toContain(t('map.selected'));
+    expect(hexEl(home).getAttribute('aria-pressed')).toBe('true');
+    expect(hexEl(home).getAttribute('aria-label')).not.toContain('selected');
   });
 
   it('keeps a sector without moves selected but highlights nothing', () => {
@@ -401,6 +486,23 @@ describe('GalaxyMap zoom and pan', () => {
     expect(viewport().scale).toBe(3);
     for (let i = 0; i < 200; i++) fireEvent.wheel(mapSvg(), { deltaY: 100 });
     expect(viewport().scale).toBe(0.6);
+  });
+
+  it('normalises line-based wheel deltas (Firefox) so one notch is a real zoom step', () => {
+    renderMap(baseView());
+    fireEvent.wheel(mapSvg(), { deltaY: -3, deltaMode: 1 });
+    const lineStep = viewport().scale;
+    expect(lineStep).toBeGreaterThan(1.05);
+    // 3 lines are 48 px: the same step as a pixel-based wheel reporting 48.
+    cleanup();
+    renderMap(baseView());
+    fireEvent.wheel(mapSvg(), { deltaY: -48, deltaMode: 0 });
+    expect(viewport().scale).toBeCloseTo(lineStep, 9);
+    // Page-based deltas are larger still.
+    cleanup();
+    renderMap(baseView());
+    fireEvent.wheel(mapSvg(), { deltaY: -1, deltaMode: 2 });
+    expect(viewport().scale).toBeGreaterThan(lineStep);
   });
 
   it('pans by dragging', () => {

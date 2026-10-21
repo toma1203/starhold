@@ -13,6 +13,9 @@ const PADDING = 12;
 /** Pointer travel (px) before a press becomes a drag instead of a click. */
 const DRAG_THRESHOLD = 4;
 const WHEEL_SENSITIVITY = 0.0015;
+/** Pixels per unit for the wheel's line (Firefox) and page delta modes. */
+const WHEEL_LINE_PX = 16;
+const WHEEL_PAGE_PX = 100;
 
 export interface GalaxyMapProps {
   view: PlayerView;
@@ -90,7 +93,13 @@ export function GalaxyMap({ view, me, selected, onSectorClick }: GalaxyMapProps)
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       const at = pointToView(svg, vbRef.current, { x: e.clientX, y: e.clientY });
-      const factor = Math.exp(-e.deltaY * WHEEL_SENSITIVITY);
+      const pixels =
+        e.deltaMode === 1
+          ? e.deltaY * WHEEL_LINE_PX
+          : e.deltaMode === 2
+            ? e.deltaY * WHEEL_PAGE_PX
+            : e.deltaY;
+      const factor = Math.exp(-pixels * WHEEL_SENSITIVITY);
       setTr((cur) => zoomAt(cur, at, factor, vbRef.current));
     };
     svg.addEventListener('wheel', onWheel, { passive: false });
@@ -169,6 +178,12 @@ export function GalaxyMap({ view, me, selected, onSectorClick }: GalaxyMapProps)
     }
   };
 
+  // A pointer that left with nothing pressed will not report a release here: forget it, so a
+  // leaked touch id can never keep the map in pinch mode or suppress clicks.
+  const onPointerLeave = (e: ReactPointerEvent<SVGSVGElement>) => {
+    if (e.buttons === 0) onPointerEnd(e);
+  };
+
   return (
     <div className="galaxy-map">
       <svg
@@ -182,6 +197,8 @@ export function GalaxyMap({ view, me, selected, onSectorClick }: GalaxyMapProps)
         onPointerMove={onPointerMove}
         onPointerUp={onPointerEnd}
         onPointerCancel={onPointerEnd}
+        onLostPointerCapture={onPointerEnd}
+        onPointerLeave={onPointerLeave}
       >
         <g data-testid="map-viewport" transform={`translate(${tr.x} ${tr.y}) scale(${tr.scale})`}>
           {sectors.map((sector) => {

@@ -349,10 +349,6 @@ select {
   outline: none;
 }
 
-.sector:focus-visible {
-  box-shadow: none;
-}
-
 .sector:hover > [data-part='hex'] {
   filter: brightness(1.12);
 }

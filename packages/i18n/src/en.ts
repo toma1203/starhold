@@ -280,7 +280,6 @@ export const en = {
   'map.fleets.one': '{count} fleet',
   'map.fleets.few': '{count} fleets',
   'map.fleets.other': '{count} fleets',
-  'map.selected': 'selected',
   'map.target': 'valid target',
 
   // Theme: space

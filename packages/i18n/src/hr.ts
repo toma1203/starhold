@@ -259,7 +259,6 @@ export const hr: Record<MessageKey, string> = {
   'map.fleets.one': '{count} flota',
   'map.fleets.few': '{count} flote',
   'map.fleets.other': '{count} flota',
-  'map.selected': 'odabran',
   'map.target': 'moguće odredište',
 
   // Theme: space
