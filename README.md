@@ -108,7 +108,7 @@ Starhold je besplatna online svemirska strateška društvena igra za 2 do 4 zapo
 
 ### Mogućnosti
 
-- Višekorisnička igra uživo za 2 do 4 igrača preko WebSocketa; podijelite petoslovni kod sobe ili poveznicu za pozivnicu.
+- Višekorisnička igra uživo za 2 do 4 igrača preko WebSocketa; podijelite kod sobe od pet znakova ili poveznicu za pozivnicu.
 - Botovi (laki i normalni) popunjavaju prazna mjesta, pa možete igrati sami ili s prijateljem.
 - Engleski i hrvatski, uz promjenu jezika u bilo kojem trenutku.
 - Radi na mobitelima i računalima, može se instalirati kao PWA, uz podršku za tipkovnicu i čitače zaslona.
@@ -118,9 +118,9 @@ Starhold je besplatna online svemirska strateška društvena igra za 2 do 4 zapo
 
 ### Kako se igra
 
-- **Cilj:** skupite pobjedničke bodove. Kolonija vrijedi 1, zvjezdana baza 2, a dvije nagrade (Najveće carstvo i Ratnik) donose po 2. Prvi do cilja (6, 8 ili 10) pobjeđuje.
-- **Vaš potez:** bacite dvije kocke i uzmite resurse sa sektora s tim brojem, zatim trgujte, gradite, širite se, napadajte i pojačavajte, pa završite potez. Na broju 7 umjesto proizvodnje djeluju pirati.
-- **Resursi:** metal, energija, kristal i biomasa. Flota košta metal + energiju, kolonija po jedan od svakog resursa, zvjezdana baza 3 metala + 2 kristala. Trgujte s bankom (4:1, ili 3:1 uz trgovačku postaju) ili s drugim igračima.
+- **Cilj:** skupite pobjedničke bodove. Kolonija vrijedi 1, zvjezdana baza 2, a dvije nagrade (Najveće carstvo i Ratni vođa) donose po 2. Prvi do cilja (6, 8 ili 10) pobjeđuje.
+- **Vaš potez:** bacite dvije kocke i uzmite resurse sa sektora s tim brojem, zatim trgujte, gradite, širite se, napadajte i pregrupirajte, pa završite potez. Na broju 7 umjesto proizvodnje djeluju pirati.
+- **Resursi:** metal, energija, kristal i biomasa. Flota košta metal + energiju, kolonija po jedan od svakog resursa, zvjezdana baza 3 metala + 2 kristala. Trgujte s bankom (4:1, ili 3:1 uz trgovačku stanicu) ili s drugim igračima.
 - **Borba:** napadajte susjedne sektore svojim flotama, usporedite kocke i preuzmite sektor kad branitelju ponestane flota.
 
 Cjelovita pravila nalaze se u samoj igri na stranici **/rules** ("Kako igrati"), npr. `http://localhost:5173/rules` tijekom razvoja.
@@ -176,7 +176,7 @@ Besplatni plan uspavljuje uslugu nakon razdoblja neaktivnosti, pa prvi posjet na
 
 ### Arhitektura
 
-Monorepo s npm workspaceovima, svugdje TypeScript:
+npm workspaces monorepo, svugdje TypeScript:
 
 | Putanja             | Paket                   | Uloga                                                                                   |
 | ------------------- | ----------------------- | --------------------------------------------------------------------------------------- |

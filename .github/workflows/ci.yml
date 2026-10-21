@@ -67,8 +67,9 @@ jobs:
           done
           if [ "$ok" != 1 ]; then docker logs starhold; exit 1; fi
           echo
-          curl -fsS http://localhost:3000/ | grep -qi '<!doctype html>'
+          body=$(curl -fsS http://localhost:3000/)
+          echo "$body" | grep -qi '<!doctype html>'
           docker exec starhold node -e "process.exit(process.getuid()===1000?0:1)"
       - name: Container logs
         if: always()
-        run: docker logs starhold
+        run: docker logs starhold || true

@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** A publish-ready browser game (Catan-style economy + Risk-style conquest in space) for 2–4 players with live online rooms, bots, EN/HR, deployed via Docker/Render from a public GitHub repo.
+**Goal:** A publish-ready browser game (a resource economy plus territorial conquest in space) for 2–4 players with live online rooms, bots, EN/HR, deployed via Docker/Render from a public GitHub repo.
 
 **Architecture:** npm-workspaces TypeScript monorepo. `packages/engine` is a pure, seeded rules reducer (`applyAction(state, playerId, action)`); `packages/bots` picks actions from a player's filtered view; `apps/server` (Express + Socket.IO) holds rooms in memory and is the only authority; `apps/web` (React + Vite) renders the filtered view as an SVG galaxy and sends actions. Internal packages are consumed as TypeScript source (no per-package build); the server is bundled with esbuild for production.
 

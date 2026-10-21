@@ -3,6 +3,8 @@ import { defineConfig, devices } from '@playwright/test';
 
 const root = fileURLToPath(new URL('../../../../', import.meta.url));
 const PORT = 4173;
+/** Second server without the shortened turn timer; human-turn.spec.ts points at this port. */
+const HUMAN_TURN_PORT = 4174;
 // `npm run e2e -- --grep @screenshots` regenerates the README screenshots (calmer game pace).
 const screenshots = process.argv.some((arg) => arg.includes('@screenshots'));
 
@@ -30,18 +32,35 @@ export default defineConfig({
     { name: 'chromium-desktop', use: { ...devices['Desktop Chrome'] } },
     { name: 'chromium-mobile', use: { ...devices['Pixel 5'] } },
   ],
-  webServer: {
-    command: 'node apps/server/dist/index.js',
-    cwd: root,
-    url: `http://localhost:${PORT}/healthz`,
-    reuseExistingServer: false,
-    timeout: 30_000,
-    env: {
-      PORT: String(PORT),
-      STARHOLD_BOT_DELAY_MS: screenshots ? '150' : '0',
-      STARHOLD_TURN_SECONDS: screenshots ? '120' : '3',
-      STARHOLD_DISCARD_SECONDS: '1',
-      STARHOLD_STATIC_DIR: `${root}apps/web/dist`,
+  webServer: [
+    {
+      command: 'node apps/server/dist/index.js',
+      cwd: root,
+      url: `http://localhost:${PORT}/healthz`,
+      reuseExistingServer: false,
+      timeout: 30_000,
+      env: {
+        PORT: String(PORT),
+        STARHOLD_BOT_DELAY_MS: screenshots ? '150' : '0',
+        STARHOLD_TURN_SECONDS: screenshots ? '120' : '3',
+        STARHOLD_DISCARD_SECONDS: '1',
+        STARHOLD_STATIC_DIR: `${root}apps/web/dist`,
+      },
     },
-  },
+    {
+      // Real turn lengths (the room setting decides, default 90 s): a human can play a turn by hand.
+      // Used by human-turn.spec.ts only.
+      command: 'node apps/server/dist/index.js',
+      cwd: root,
+      url: `http://localhost:${HUMAN_TURN_PORT}/healthz`,
+      reuseExistingServer: false,
+      timeout: 30_000,
+      env: {
+        PORT: String(HUMAN_TURN_PORT),
+        STARHOLD_BOT_DELAY_MS: '0',
+        STARHOLD_DISCARD_SECONDS: '30',
+        STARHOLD_STATIC_DIR: `${root}apps/web/dist`,
+      },
+    },
+  ],
 });
