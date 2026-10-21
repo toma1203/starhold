@@ -260,4 +260,5 @@ export const hr: Record<MessageKey, string> = {
   'theme.space.sector.nebula': 'Maglica',
   'theme.space.sector.home': 'Matični sustav',
   'theme.space.sector.tradeStation': 'Trgovačka stanica',
+  'theme.space.title': 'Svemir',
 };

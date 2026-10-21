@@ -281,6 +281,7 @@ export const en = {
   'theme.space.sector.nebula': 'Nebula',
   'theme.space.sector.home': 'Home system',
   'theme.space.sector.tradeStation': 'Trade station',
+  'theme.space.title': 'Space',
 } as const;
 
 export type MessageKey = keyof typeof en;
