@@ -31,7 +31,9 @@ export class RoomManager {
   }
 
   delete(code: string): boolean {
-    return this.rooms.delete(code.toUpperCase());
+    const key = code.toUpperCase();
+    this.rooms.get(key)?.dispose();
+    return this.rooms.delete(key);
   }
 
   /** Pure lookup (does not reconnect anyone; call `room.rejoin` for that). */
@@ -50,6 +52,7 @@ export class RoomManager {
       const finished =
         room.phase === 'FINISHED' && now - room.lastActivity >= this.config.finishedRoomTtlMs;
       if (abandoned || finished) {
+        room.dispose();
         this.rooms.delete(code);
         deleted.push(code);
       }

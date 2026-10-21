@@ -1,10 +1,18 @@
 import { randomInt } from 'node:crypto';
-import { createGame, type BotLevel, type GameState, type SeatConfig } from '@starhold/engine';
+import {
+  createGame,
+  type Action,
+  type BotLevel,
+  type ErrorCode,
+  type GameState,
+  type SeatConfig,
+} from '@starhold/engine';
 import {
   DEFAULT_ROOM_SETTINGS,
   NicknameSchema,
   SettingsSchema,
   TokenSchema,
+  type GameStatePayload,
   type RoomErrorCode,
   type RoomInfo,
   type RoomPhase,
@@ -14,6 +22,7 @@ import {
 } from '@starhold/protocol';
 import { generatePlayerId, generateToken } from './codes.ts';
 import type { Config } from './config.ts';
+import { GameSession } from './gameSession.ts';
 
 export interface RoomHooks {
   /** Push the room's current state to everyone in it. */
@@ -31,8 +40,8 @@ const MIN_SEATS_TO_START = 2;
 const BOT_NAMES = ['Bot Vega', 'Bot Orion', 'Bot Lyra'] as const;
 
 /**
- * One game room. Lobby state and methods come first; the game half (turn loop,
- * timers, bots acting) attaches to the `game` field below.
+ * One game room. Lobby state and methods come first; the game half (turn loop, timers,
+ * bots acting) lives in `GameSession`, which this room creates when the game starts.
  */
 export class Room {
   // --- lobby state -------------------------------------------------------
@@ -49,6 +58,7 @@ export class Room {
 
   // --- game state (driven by the game loop) -------------------------------
   game: GameState | null = null;
+  private session: GameSession | null = null;
 
   constructor(
     readonly code: string,
@@ -90,6 +100,7 @@ export class Room {
     if (!seat) return null;
     seat.connected = true;
     seat.afk = false;
+    this.session?.schedule();
     this.touch();
     return seat.playerId;
   }
@@ -103,9 +114,10 @@ export class Room {
 
   markDisconnected(playerId: string): void {
     const seat = this.seat(playerId);
-    if (!seat || seat.isBot) return;
+    if (!seat || seat.isBot || !seat.connected) return;
     seat.connected = false;
     if (this.phase === 'IN_GAME') seat.afk = true;
+    this.session?.schedule();
     this.touch();
   }
 
@@ -126,6 +138,7 @@ export class Room {
       this.seats.length = 0; // bots alone make no room
       this.hostId = '';
     }
+    this.session?.schedule();
     this.touch();
   }
 
@@ -186,10 +199,61 @@ export class Room {
       isBot: s.isBot,
       botLevel: s.botLevel,
     }));
+    for (const s of this.seats) if (!s.isBot && !s.connected) s.afk = true;
     this.game = createGame({ seats, targetVp: this.settings.targetVp }, randomInt(0, 2 ** 31));
     this.phase = 'IN_GAME';
+    this.session = new GameSession(this, this.config, this.hooks, () => this.touch());
+    this.touch();
+    this.session.begin();
+    return { ok: true };
+  }
+
+  // --- game: delegated to the session --------------------------------------
+
+  /** 1 at game start, +1 per successful action; 0 while there is no game. */
+  get version(): number {
+    return this.session?.version ?? 0;
+  }
+
+  handleAction(playerId: string, action: Action): RoomOk | { ok: false; error: ErrorCode } {
+    if (!this.session) return { ok: false, error: 'err.wrongPhase' };
+    return this.session.handleAction(playerId, action);
+  }
+
+  /** Re-arms the turn, discard and bot timers for the current state. */
+  schedule(): void {
+    this.session?.schedule();
+  }
+
+  stateFor(playerId: string): GameStatePayload {
+    if (!this.session) throw new Error('no game in progress');
+    return this.session.stateFor(playerId);
+  }
+
+  /** Host only: a finished game goes back to the lobby with the connected seats. */
+  rematch(byPlayerId: string): RoomOk | RoomFailure {
+    if (byPlayerId === '' || byPlayerId !== this.hostId) return { error: 'err.notHost' };
+    if (this.phase !== 'FINISHED') return { error: 'err.badRequest' };
+    this.dispose();
+    this.game = null;
+    this.phase = 'LOBBY';
+    for (const seat of [...this.seats]) {
+      if (seat.isBot) continue;
+      if (seat.connected) seat.afk = false;
+      else this.removeSeat(seat.playerId);
+    }
+    if (!this.seats.some((s) => !s.isBot)) {
+      this.seats.length = 0;
+      this.hostId = '';
+    }
     this.touch();
     return { ok: true };
+  }
+
+  /** Stops every timer; the room must not be used for a game afterwards. */
+  dispose(): void {
+    this.session?.dispose();
+    this.session = null;
   }
 
   // --- views --------------------------------------------------------------
@@ -231,6 +295,14 @@ export class Room {
     let id = generatePlayerId();
     while (this.seat(id)) id = generatePlayerId();
     return id;
+  }
+
+  private removeSeat(playerId: string): void {
+    const index = this.seats.findIndex((s) => s.playerId === playerId);
+    if (index < 0) return;
+    this.seats.splice(index, 1);
+    this.dropToken(playerId);
+    if (this.hostId === playerId) this.transferHost(index);
   }
 
   private dropToken(playerId: string): void {

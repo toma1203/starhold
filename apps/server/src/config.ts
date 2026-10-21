@@ -21,10 +21,11 @@ function intEnv(raw: string | undefined, fallback: number | null): number | null
 
 export function loadConfig(env: Record<string, string | undefined> = process.env): Config {
   const delay = intEnv(env['STARHOLD_BOT_DELAY_MS'], null);
+  const turn = intEnv(env['STARHOLD_TURN_SECONDS'], null);
   return {
     port: intEnv(env['PORT'], 3000),
     botDelayMs: delay === null ? [600, 1200] : [delay, delay],
-    turnSecondsOverride: intEnv(env['STARHOLD_TURN_SECONDS'], null),
+    turnSecondsOverride: turn !== null && turn > 0 ? turn : null,
     discardSeconds: intEnv(env['STARHOLD_DISCARD_SECONDS'], 30),
     emptyRoomTtlMs: 1_800_000,
     finishedRoomTtlMs: 900_000,

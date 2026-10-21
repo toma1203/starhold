@@ -37,3 +37,9 @@ describe('loadConfig', () => {
     expect(c.turnSecondsOverride).toBeNull();
   });
 });
+
+describe('loadConfig turn override', () => {
+  it('treats STARHOLD_TURN_SECONDS=0 as unset', () => {
+    expect(loadConfig({ STARHOLD_TURN_SECONDS: '0' }).turnSecondsOverride).toBeNull();
+  });
+});

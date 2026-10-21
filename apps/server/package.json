@@ -8,6 +8,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@starhold/bots": "*",
     "@starhold/engine": "*",
     "@starhold/protocol": "*"
   },
