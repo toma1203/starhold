@@ -4,6 +4,7 @@ import {
   ActionSchema,
   DEFAULT_ROOM_SETTINGS,
   NicknameSchema,
+  ROOM_CLOSED_REASONS,
   ROOM_ERROR_CODES,
   RoomCodeSchema,
   SettingsSchema,
@@ -198,5 +199,11 @@ describe('ROOM_ERROR_CODES', () => {
         'err.notEnoughPlayers',
       ].sort(),
     );
+  });
+});
+
+describe('ROOM_CLOSED_REASONS', () => {
+  it('lists every reason a room:closed can carry', () => {
+    expect([...ROOM_CLOSED_REASONS].sort()).toEqual(['expired', 'replaced', 'serverRestart']);
   });
 });

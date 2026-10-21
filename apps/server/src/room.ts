@@ -121,8 +121,9 @@ export class Room {
     if (!seat || seat.isBot || !seat.connected) return;
     seat.connected = false;
     if (this.phase === 'IN_GAME') seat.afk = true;
-    // A lobby host who drops hands the role on at once (their seat is kept for a reload).
-    if (this.phase === 'LOBBY' && this.hostId === playerId && !this.isEmptyOfHumans()) {
+    // A host who drops hands the role on at once, in any phase, so a rematch is never blocked.
+    // The seat stays, so the search starts after it; the old host does not get the role back.
+    if (this.hostId === playerId && !this.isEmptyOfHumans()) {
       this.transferHost(this.seats.indexOf(seat) + 1);
     }
     this.session?.schedule();
@@ -141,7 +142,7 @@ export class Room {
       seat.connected = false;
       seat.afk = true;
     }
-    if (this.hostId === playerId) this.transferHost(index);
+    if (this.hostId === playerId) this.transferHost(this.phase === 'LOBBY' ? index : index + 1);
     if (this.phase === 'LOBBY' && !this.seats.some((s) => !s.isBot)) {
       this.seats.length = 0; // bots alone make no room
       this.hostId = '';
@@ -330,15 +331,14 @@ export class Room {
   }
 
   /**
-   * Hands the host role to the next connected human in seat order, starting after
-   * `fromIndex` and wrapping. Keeps the current host if nobody else is connected
-   * in a running game; in the lobby falls back to any remaining human.
+   * Hands the host role to the next connected human in seat order, starting at seat index
+   * `start` and wrapping (callers pass the first seat after the old host: its own index once
+   * the seat is gone, index + 1 while it stays). Keeps the current host if nobody else is
+   * connected; in the lobby falls back to any remaining human.
    */
-  private transferHost(fromIndex: number): void {
+  private transferHost(start: number): void {
     const n = this.seats.length;
     const inLobby = this.phase === 'LOBBY';
-    // In the lobby the leaver's seat is already gone, so the next seat sits at `fromIndex`.
-    const start = inLobby ? fromIndex : fromIndex + 1;
     const order = Array.from({ length: n }, (_, k) => this.seats[(start + k) % n]);
     const humans = order.filter((s): s is SeatInfo => !!s && !s.isBot);
     const next = humans.find((s) => s.connected) ?? (inLobby ? humans[0] : undefined);

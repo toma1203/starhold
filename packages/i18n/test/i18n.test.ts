@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ERROR_CODES } from '@starhold/engine';
-import { ROOM_ERROR_CODES } from '@starhold/protocol';
+import { ROOM_CLOSED_REASONS, ROOM_ERROR_CODES } from '@starhold/protocol';
 import { createT, detectLocale, en, hr, plural } from '../src/index.ts';
 
 const enRecord: Record<string, string> = en;
@@ -45,6 +45,18 @@ describe('dictionaries', () => {
       expect(enRecord[code], code).toBeTypeOf('string');
       expect(hrRecord[code], code).toBeTypeOf('string');
     }
+  });
+
+  it('every room:closed reason has a key', () => {
+    expect(ROOM_CLOSED_REASONS.length).toBeGreaterThan(0);
+    for (const reason of ROOM_CLOSED_REASONS) {
+      expect(enRecord[`room.closed.${reason}`], reason).toBeTypeOf('string');
+      expect(hrRecord[`room.closed.${reason}`], reason).toBeTypeOf('string');
+    }
+    expect(enRecord['room.closed.replaced']).toBe('This game was opened in another tab or device.');
+    expect(hrRecord['room.closed.replaced']).toBe(
+      'Ova igra je otvorena u drugoj kartici ili na drugom uređaju.',
+    );
   });
 
   it('hr uses the same {placeholders} as en for every key', () => {

@@ -225,6 +225,29 @@ describe('Room lobby', () => {
     expect(room.info(a.playerId).hostId).toBe(b.playerId);
   });
 
+  it('a disconnected host passes the role on in a running game and in a finished one', () => {
+    for (const phase of ['IN_GAME', 'FINISHED'] as const) {
+      const { room } = setup();
+      const a = join(room, 'Ada');
+      const b = join(room, 'Bo');
+      const c = join(room, 'Cy');
+      expect(room.start(a.playerId)).toEqual({ ok: true });
+      if (phase === 'FINISHED') room.phase = 'FINISHED';
+      room.markDisconnected(a.playerId);
+      expect(room.info(b.playerId).hostId, phase).toBe(b.playerId);
+      // The former host does not take the role back by returning...
+      room.rejoin(a.token);
+      expect(room.info(a.playerId).hostId, phase).toBe(b.playerId);
+      // ...and a rematch is never blocked: the new host can start one when the game is over.
+      if (phase === 'FINISHED') {
+        room.markDisconnected(b.playerId);
+        expect(room.info(c.playerId).hostId).toBe(c.playerId);
+        expect(room.rematch(c.playerId)).toEqual({ ok: true });
+      }
+      room.dispose();
+    }
+  });
+
   it('the host stays host when nobody else is connected', () => {
     const { room } = setup();
     const a = join(room, 'Ada');

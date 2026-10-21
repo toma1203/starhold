@@ -31,6 +31,11 @@ export const hr: Record<MessageKey, string> = {
   'err.serverFull': 'Server je pun. Pokušaj ponovno kasnije.',
   'err.notEnoughPlayers': 'Za početak su potrebna najmanje 2 igrača.',
 
+  // Room closed (room:closed reasons)
+  'room.closed.expired': 'Ova soba je istekla.',
+  'room.closed.serverRestart': 'Server se ponovno pokreće. Pokušaj se ponovno spojiti za trenutak.',
+  'room.closed.replaced': 'Ova igra je otvorena u drugoj kartici ili na drugom uređaju.',
+
   // Home screen
   'home.title': 'Starhold',
   'home.tagline': 'Gradi, trguj i osvoji galaksiju.',

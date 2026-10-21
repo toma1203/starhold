@@ -20,6 +20,14 @@ const server = await startServer(loadConfig(), { staticDir });
 for (const signal of ['SIGTERM', 'SIGINT'] as const) {
   process.once(signal, () => {
     log.info('shutting down', { signal });
-    void server.close().then(() => process.exit(0));
+    server.close().then(
+      () => process.exit(0),
+      (error: unknown) => {
+        log.error('shutdown failed', {
+          error: error instanceof Error ? error.stack : String(error),
+        });
+        process.exit(1);
+      },
+    );
   });
 }

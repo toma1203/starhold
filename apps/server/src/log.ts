@@ -5,7 +5,7 @@
 type Fields = Record<string, unknown>;
 
 function line(level: 'info' | 'warn' | 'error', msg: string, fields?: Fields): string {
-  return JSON.stringify({ level, time: new Date().toISOString(), msg, ...fields });
+  return JSON.stringify({ ...fields, level, time: new Date().toISOString(), msg });
 }
 
 export const log = {

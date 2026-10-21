@@ -35,6 +35,11 @@ export const en = {
   'err.serverFull': 'The server is full. Please try again later.',
   'err.notEnoughPlayers': 'At least 2 players are needed to start.',
 
+  // Room closed (room:closed reasons)
+  'room.closed.expired': 'This room expired.',
+  'room.closed.serverRestart': 'The server is restarting. Please reconnect in a moment.',
+  'room.closed.replaced': 'This game was opened in another tab or device.',
+
   // Home screen
   'home.title': 'Starhold',
   'home.tagline': 'Build, trade and conquer the galaxy.',

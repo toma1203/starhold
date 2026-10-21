@@ -14,6 +14,10 @@ export const ROOM_ERROR_CODES = [
 
 export type RoomErrorCode = (typeof ROOM_ERROR_CODES)[number];
 
+/** Why a `room:closed` was sent: swept, server stopping, or this seat was taken by a newer socket. */
+export const ROOM_CLOSED_REASONS = ['expired', 'serverRestart', 'replaced'] as const;
+export type RoomClosedReason = (typeof ROOM_CLOSED_REASONS)[number];
+
 export type RoomPhase = 'LOBBY' | 'IN_GAME' | 'FINISHED';
 
 export interface SeatInfo {
@@ -65,5 +69,5 @@ export interface ServerToClientEvents {
   'game:state': (g: GameStatePayload) => void;
   'game:events': (e: GameEvent[]) => void;
   error: (e: ServerError) => void;
-  'room:closed': (p: { reason: 'expired' | 'serverRestart' }) => void;
+  'room:closed': (p: { reason: RoomClosedReason }) => void;
 }

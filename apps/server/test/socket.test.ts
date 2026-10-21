@@ -8,6 +8,7 @@ import type {
   ServerError,
   ServerToClientEvents,
 } from '@starhold/protocol';
+import { Room } from '../src/room.ts';
 import { startServer } from '../src/server.ts';
 import { testConfig } from './helpers.ts';
 
@@ -185,6 +186,8 @@ describe('room lifecycle over sockets', () => {
     const { a, b, created } = await twoPlayerRoom();
     const a2 = await connect();
     await okAck(call(a2, 'room:rejoin', { code: created.code, token: created.token }));
+    await until(() => a.closed.length > 0, 'stale socket told it was replaced');
+    expect(a.closed).toEqual([{ reason: 'replaced' }]);
     a.socket.disconnect();
     await new Promise((r) => setTimeout(r, 150));
     const seat = last(b.rooms)?.seats.find((s) => s.playerId === created.playerId);
@@ -239,6 +242,55 @@ describe('room lifecycle over sockets', () => {
     send(a, 'room:removeBot', { playerId: bot?.playerId });
     await until(() => last(a.rooms)?.seats.length === 2, 'bot removed');
     expect(a.errors).toEqual([]);
+  });
+
+  it('a failed create keeps the old seat', async () => {
+    await boot({ maxRooms: 1 });
+    const { a, b, joined } = await twoPlayerRoom();
+    expect(await call(b, 'room:create', { name: 'Bo' })).toEqual({
+      ok: false,
+      error: 'err.serverFull',
+    });
+    await new Promise((r) => setTimeout(r, 100));
+    expect(last(a.rooms)?.seats).toHaveLength(2);
+    // b is still bound: its host-only control is answered from the old room.
+    send(b, 'room:start');
+    await until(() => b.errors.length === 1, 'b still in the room');
+    expect(b.errors[0]).toEqual({ code: 'err.notHost' });
+    expect(last(b.rooms)?.you).toBe(joined.playerId);
+  });
+
+  it('a failed join keeps the old seat', async () => {
+    await boot();
+    const { a, b } = await twoPlayerRoom();
+    const c = await connect();
+    const d = await connect();
+    const other = await okAck(call(c, 'room:create', { name: 'Cy' }));
+    await okAck(call(d, 'room:join', { code: other.code, name: 'Di' }));
+    send(c, 'room:start');
+    await until(() => c.games.length > 0, 'other room started');
+    expect(await call(b, 'room:join', { code: other.code, name: 'Bo' })).toEqual({
+      ok: false,
+      error: 'err.gameStarted',
+    });
+    await new Promise((r) => setTimeout(r, 100));
+    expect(last(a.rooms)?.seats).toHaveLength(2);
+    expect(last(b.rooms)?.seats.map((x) => x.name)).toEqual(['Ana', 'Bo']);
+  });
+
+  it('joining the room you are already in is a no-op that returns your own binding', async () => {
+    await boot();
+    const { a, b, created, joined } = await twoPlayerRoom();
+    const again = await call(b, 'room:join', { code: created.code, name: 'Bo' });
+    expect(again).toEqual({
+      ok: true,
+      code: created.code,
+      playerId: joined.playerId,
+      token: joined.token,
+    });
+    await new Promise((r) => setTimeout(r, 100));
+    expect(last(a.rooms)?.seats).toHaveLength(2);
+    expect(last(b.rooms)?.you).toBe(joined.playerId);
   });
 
   it('leave frees the seat in the lobby', async () => {
@@ -307,8 +359,10 @@ describe('validation and abuse', () => {
       'a rateLimited error',
     );
     await new Promise((r) => setTimeout(r, 300)); // let the whole burst be processed
+    // At most one notice per second, however many messages were dropped; the drops are real.
     const limited = flood.a.errors.filter((e) => e.code === 'err.rateLimited').length;
-    expect(limited).toBeGreaterThanOrEqual(50);
+    expect(limited).toBeLessThanOrEqual(2);
+    expect(flood.a.errors.length - limited).toBeLessThanOrEqual(30);
 
     const before = other.rooms.length;
     send(other, 'room:addBot', { level: 'normal' });
@@ -334,6 +388,32 @@ describe('validation and abuse', () => {
     );
     expect(acks.some((a) => !a.ok && a.error === 'err.rateLimited')).toBe(true);
     expect(acks.every((a) => !a.ok)).toBe(true);
+  });
+});
+
+describe('failure containment', () => {
+  it('an exception while handling a disconnect is logged and does not take the server down', async () => {
+    await boot();
+    const { a, b } = await twoPlayerRoom();
+    const other = await connect();
+    await okAck(call(other, 'room:create', { name: 'Cy' }));
+    const boom = vi.spyOn(Room.prototype, 'markDisconnected').mockImplementationOnce(() => {
+      throw new Error('boom');
+    });
+    a.socket.disconnect();
+    await until(() => logSpy.error.mock.calls.length > 0, 'the failure to be logged');
+    expect(logSpy.error.mock.calls[0]?.[0]).toBe('socket handler failed');
+    logSpy.error.mockClear();
+    boom.mockRestore();
+
+    expect(await healthz()).toBe(200);
+    const before = other.rooms.length;
+    send(other, 'room:addBot', { level: 'easy' });
+    await until(() => other.rooms.length > before, 'other room still works');
+    // The surviving player of the affected room can still use the server too.
+    send(b, 'room:addBot', { level: 'easy' });
+    await until(() => b.errors.length === 1, 'b answered');
+    expect(b.errors[0]).toEqual({ code: 'err.notHost' });
   });
 });
 
