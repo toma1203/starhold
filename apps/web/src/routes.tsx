@@ -4,6 +4,7 @@ import { useT } from './i18n/useT.ts';
 import { loadSession } from './net/session.ts';
 import { NotFoundPage } from './pages/NotFoundPage.tsx';
 import { TitlePage } from './pages/TitlePage.tsx';
+import { GameScreen } from './screens/GameScreen.tsx';
 import { HomeScreen } from './screens/HomeScreen.tsx';
 import { JoinPrompt } from './screens/JoinPrompt.tsx';
 import { LobbyScreen } from './screens/LobbyScreen.tsx';
@@ -29,12 +30,9 @@ function RoomRoute({ code }: { code: string }) {
   if (!hasSession) return <JoinPrompt code={code} />;
   if (room?.code !== code) return <p className="screen">{t('game.reconnecting')}</p>;
   if (room.phase === 'LOBBY') return <LobbyScreen />;
-  // GameScreen and EndScreen arrive with the game UI.
-  return (
-    <p className="screen">
-      {room.phase === 'IN_GAME' ? t('game.phase.main') : t('game.phase.finished')}
-    </p>
-  );
+  if (room.phase === 'IN_GAME') return <GameScreen />;
+  // EndScreen arrives with the end-of-game UI.
+  return <p className="screen">{t('game.phase.finished')}</p>;
 }
 
 export function AppRoutes() {

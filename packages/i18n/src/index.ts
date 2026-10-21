@@ -40,3 +40,27 @@ export function plural(
   if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return forms.few ?? forms.other;
   return forms.other;
 }
+
+/** Keys that come as a `.one` / `.few` / `.other` triple, named by their shared base. */
+export type PluralKey = {
+  [K in MessageKey]: K extends `${infer Base}.one` ? Base : never;
+}[MessageKey];
+
+/**
+ * Translates a counted message: picks the `.one` / `.few` / `.other` form for `n` and fills
+ * `{count}` (plus any other params).
+ */
+export function tPlural(
+  t: Translate,
+  locale: Locale,
+  keyBase: PluralKey,
+  n: number,
+  params: Params = {},
+): string {
+  const all = { ...params, count: n };
+  return plural(locale, n, {
+    one: t(`${keyBase}.one`, all),
+    few: t(`${keyBase}.few`, all),
+    other: t(`${keyBase}.other`, all),
+  });
+}

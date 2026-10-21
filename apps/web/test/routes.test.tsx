@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, render, screen } from '@testing-library/react';
+import { act, cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createT } from '@starhold/i18n';
 import type { RoomInfo } from '@starhold/protocol';
@@ -8,6 +8,7 @@ import { Toasts } from '../src/ui/Toasts.tsx';
 import { bindSocket, useGameStore } from '../src/store/gameStore.ts';
 import { loadSession, saveSession } from '../src/net/session.ts';
 import { FakeSocket } from './fakeSocket.ts';
+import { makeState, seedGame } from './fixtures.ts';
 
 const t = createT('en');
 const TOKEN = 'c'.repeat(32);
@@ -116,13 +117,18 @@ describe('room route', () => {
     expect(socket.sent('room:rejoin')).toHaveLength(1);
   });
 
-  it('shows a one-line placeholder for running and finished games', () => {
+  it('shows the game screen for a running game and a placeholder once it is finished', () => {
     visit('/room/ABCDE');
     saveSession('ABCDE', { playerId: 'p1', token: TOKEN });
     useGameStore.setState({ room: room({ phase: 'IN_GAME' }), activeCode: 'ABCDE' });
     const { unmount } = render(<AppRoutes />);
-    expect(screen.getByText(t('game.phase.main'))).toBeTruthy();
+    // the room is known, the first game state is not: GameScreen waits for it
+    expect(screen.getByText(t('game.reconnecting'))).toBeTruthy();
+    seedGame(makeState(3, 1), 'p1');
     unmount();
+    render(<AppRoutes />);
+    expect(screen.getByRole('group', { name: t('map.title') })).toBeTruthy();
+    cleanup();
     useGameStore.setState({ room: room({ phase: 'FINISHED' }) });
     render(<AppRoutes />);
     expect(screen.getByText(t('game.phase.finished'))).toBeTruthy();

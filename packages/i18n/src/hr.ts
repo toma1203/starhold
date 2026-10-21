@@ -40,7 +40,7 @@ export const hr: Record<MessageKey, string> = {
   'home.title': 'Starhold',
   'home.tagline': 'Gradi, trguj i osvoji galaksiju.',
   'home.nickname': 'Nadimak',
-  'home.create': 'Kreiraj sobu',
+  'home.create': 'Stvori sobu',
   'home.join': 'Uđi u sobu',
   'home.code': 'Kod sobe',
 
@@ -98,7 +98,7 @@ export const hr: Record<MessageKey, string> = {
   'game.yourTurn': 'Tvoj potez',
   'game.waitingFor': 'Čeka se {player}…',
   'game.timer': 'Preostalo vrijeme',
-  'game.afk': 'Odsutan (igra bot)',
+  'game.afk': 'Nije tu (igra bot)',
   'game.disconnected': 'Veza prekinuta',
   'game.reconnecting': 'Ponovno povezivanje…',
   'game.vp': 'Bodovi pobjede',
@@ -106,6 +106,48 @@ export const hr: Record<MessageKey, string> = {
   'game.fleets': 'Flote',
   'game.largestEmpire': 'Najveće carstvo',
   'game.warlord': 'Ratni vođa',
+
+  // Game screen: panels, actions and dialogs
+  'game.actions': 'Akcije',
+  'game.players': 'Igrači',
+  'game.log': 'Dnevnik',
+  'game.logEmpty': 'Još se ništa nije dogodilo.',
+  'game.lastRoll': 'Zadnje bacanje: {dice}',
+  'game.selectHint': 'Odaberi jedan od svojih sektora za gradnju ili odredište na karti.',
+  'game.reason.colonySite': 'Treba zauzet sektor bez kolonije (ne matični sustav).',
+  'game.reason.starbaseSite': 'Treba kolonija koju možeš nadograditi.',
+  'game.chooseAction': 'Što želiš učiniti?',
+  'game.route': '{from} → {to}',
+  'game.fortifyEnds': 'Pregrupiranje završava tvoj potez.',
+  'game.more': 'Više: {resource}',
+  'game.less': 'Manje: {resource}',
+  'game.discardChosen': 'Odabrano {chosen} od {count}',
+  'game.trade.title': 'Trgovina',
+  'game.trade.players': 'S igračima',
+  'game.trade.send': 'Pošalji ponudu',
+  'game.offer.incoming': '{player} ti nudi {give} za {want}',
+  'game.offer.yours': 'Tvoja ponuda: {give} za {want}',
+  'game.offer.accepted': 'prihvaćeno',
+  'game.offer.declined': 'odbijeno',
+  'game.offer.pending': 'čeka se',
+  'game.offer.status': '{player}: {status}',
+  'game.offer.tradeWith': 'Trguj s igračem {player}',
+  'game.offer.withdraw': 'Povuci ponudu',
+  'game.offer.youAccepted': 'Prihvaćeno. Čeka se potvrda ponuditelja…',
+  'game.offer.youDeclined': 'Ponuda je odbijena.',
+  'game.offer.cannotAfford': 'Nemaš dovoljno resursa za ovu ponudu.',
+  'game.attack.captureChance': 'Šansa za osvajanje: {percent}%',
+  'game.attack.roundChance': 'Šansa za pobjedu u jednoj rundi: {percent}%',
+  'game.attack.moveOnConquest': 'Flote za preseljenje ako osvojiš',
+  'game.attack.waiting': 'Čeka se rezultat…',
+  'game.attack.attackerDice': 'Kockice napadača',
+  'game.attack.defenderDice': 'Kockice branitelja',
+  'game.attack.losses':
+    'Izgubljene flote, napadač / branitelj: {attackerLosses} / {defenderLosses}',
+  'game.attack.result.conquered': 'Sektor je osvojen!',
+  'game.attack.result.won': 'Bitka je dobivena, ali sektor se drži.',
+  'game.attack.result.lost': 'Obrana je izdržala.',
+  'game.attack.again': 'Napadni ponovno',
 
   // Event log
   'event.turnStarted': 'Potez igrača {player}, runda {round}',
@@ -117,8 +159,8 @@ export const hr: Record<MessageKey, string> = {
   'event.discarded.few': '{player} odbacuje {count} karte',
   'event.discarded.other': '{player} odbacuje {count} karata',
   'event.pirateMoved': '{player} pomiče piratski brod u sektor {sector}',
-  'event.stolen.known': '{thief} krade kartu igraču {victim}: {resource}',
-  'event.stolen.hidden': '{thief} krade kartu igraču {victim}',
+  'event.stolen.known': '{thief} krade kartu od igrača {victim}: {resource}',
+  'event.stolen.hidden': '{thief} krade kartu od igrača {victim}',
   'event.bankTraded': '{player} mijenja u banci: {giveCount} × {give} → {get}',
   'event.tradeOffered': '{player} nudi {give} u zamjenu za {want}',
   'event.tradeResponded.accept': '{player} prihvaća ponudu',
@@ -135,7 +177,7 @@ export const hr: Record<MessageKey, string> = {
   'event.fortified.few': '{player} premješta {count} flote iz {from} u {to}',
   'event.fortified.other': '{player} premješta {count} flota iz {from} u {to}',
   'event.battle.won':
-    '{attacker} napada {defender} u sektoru {to} i dobiva bitku ({attackRoll} naspram {defendRoll}). Izgubljene flote, napadač / branitelj: {attackerLosses} / {defenderLosses}',
+    '{attacker} napada {defender} u sektoru {to} i pobjeđuje u bitci ({attackRoll} naspram {defendRoll}). Izgubljene flote, napadač / branitelj: {attackerLosses} / {defenderLosses}',
   'event.battle.lost':
     '{attacker} napada {defender} u sektoru {to}, ali obrana drži ({attackRoll} naspram {defendRoll}). Izgubljene flote, napadač / branitelj: {attackerLosses} / {defenderLosses}',
   'event.battle.conquered':
@@ -186,7 +228,7 @@ export const hr: Record<MessageKey, string> = {
   'pages.rules.build.colony':
     'Kolonija: Metal + Energija + Kristali + Biomasa. Pretvara zauzeti sektor u koloniju. Vrijedi 1 bod i proizvodi 2.',
   'pages.rules.build.starbase':
-    'Zvjezdana baza: 3 Metal + 2 Kristali. Nadograđuje koloniju. Ukupno vrijedi 2 boda, proizvodi 2 i jača obranu.',
+    'Zvjezdana baza: 3 metala + 2 kristala. Nadograđuje koloniju. Ukupno vrijedi 2 boda, proizvodi 2 i jača obranu.',
   'pages.rules.build.rule': 'Svaki tvoj sektor uvijek mora imati barem 1 flotu.',
   'pages.rules.expand.title': 'Širenje',
   'pages.rules.expand.body':
@@ -228,7 +270,7 @@ export const hr: Record<MessageKey, string> = {
   'pages.credits.license': 'Sva prava pridržana.',
 
   // Pages: not found
-  'pages.notFound.title': 'Izgubljen u svemiru',
+  'pages.notFound.title': 'Izgubljeno u svemiru',
   'pages.notFound.body': 'Ova stranica ne postoji.',
   'pages.notFound.back': 'Natrag na početnu',
 

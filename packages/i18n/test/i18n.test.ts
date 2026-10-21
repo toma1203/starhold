@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { ERROR_CODES } from '@starhold/engine';
+import type { GameEvent } from '@starhold/engine';
 import { ROOM_CLOSED_REASONS, ROOM_ERROR_CODES } from '@starhold/protocol';
-import { createT, detectLocale, en, hr, plural } from '../src/index.ts';
+import { createT, detectLocale, en, hr, plural, tPlural } from '../src/index.ts';
 
 const enRecord: Record<string, string> = en;
 const hrRecord: Record<string, string> = hr;
@@ -66,26 +67,29 @@ describe('dictionaries', () => {
   });
 
   it('has a message for every GameEvent type', () => {
-    const types = [
-      'turnStarted',
-      'homeBonus',
-      'diceRolled',
-      'produced',
-      'discarded',
-      'pirateMoved',
-      'stolen',
-      'bankTraded',
-      'tradeOffered',
-      'tradeResponded',
-      'traded',
-      'tradeCancelled',
-      'built',
-      'expanded',
-      'battle',
-      'fortified',
-      'awardChanged',
-      'gameOver',
-    ];
+    // The Record type makes the compiler reject a missing or unknown GameEvent type.
+    const eventTypes: Record<GameEvent['type'], true> = {
+      turnStarted: true,
+      homeBonus: true,
+      diceRolled: true,
+      produced: true,
+      discarded: true,
+      pirateMoved: true,
+      stolen: true,
+      bankTraded: true,
+      tradeOffered: true,
+      tradeResponded: true,
+      traded: true,
+      tradeCancelled: true,
+      built: true,
+      expanded: true,
+      battle: true,
+      fortified: true,
+      awardChanged: true,
+      gameOver: true,
+    };
+    const types = Object.keys(eventTypes);
+    expect(types).toHaveLength(18);
     for (const type of types) {
       expect(
         enKeys.some((k) => k === `event.${type}` || k.startsWith(`event.${type}.`)),
@@ -101,6 +105,16 @@ describe('dictionaries', () => {
         expect(hrRecord[`${base}.${form}`], `${base}.${form}`).toBeTypeOf('string');
       }
     }
+  });
+
+  it('uses the corrected Croatian wording', () => {
+    expect(hr['pages.rules.build.starbase']).toContain('3 metala + 2 kristala');
+    expect(hr['event.stolen.known']).toBe('{thief} krade kartu od igrača {victim}: {resource}');
+    expect(hr['event.stolen.hidden']).toBe('{thief} krade kartu od igrača {victim}');
+    expect(hr['event.battle.won']).toContain('pobjeđuje u bitci');
+    expect(hr['home.create']).toBe('Stvori sobu');
+    expect(hr['game.afk']).toBe('Nije tu (igra bot)');
+    expect(hr['pages.notFound.title']).toBe('Izgubljeno u svemiru');
   });
 
   it('names the theme vocabulary', () => {
@@ -242,5 +256,31 @@ describe('plural', () => {
     expect(plural('en', 2, f)).toBe('fleets');
     expect(plural('en', 21, f)).toBe('fleets');
     expect(plural('en', 0, f)).toBe('fleets');
+  });
+});
+
+describe('tPlural', () => {
+  it('picks the form for the count and fills {count} plus extra params (EN)', () => {
+    const t = createT('en');
+    expect(tPlural(t, 'en', 'event.discarded', 1, { player: 'Ana' })).toBe('Ana discards 1 card');
+    expect(tPlural(t, 'en', 'event.discarded', 3, { player: 'Ana' })).toBe('Ana discards 3 cards');
+    expect(tPlural(t, 'en', 'event.discarded', 0, { player: 'Ana' })).toBe('Ana discards 0 cards');
+  });
+
+  it('uses one / few / other in Croatian', () => {
+    const t = createT('hr');
+    expect(tPlural(t, 'hr', 'event.discarded', 1, { player: 'Ana' })).toBe('Ana odbacuje 1 kartu');
+    expect(tPlural(t, 'hr', 'event.discarded', 3, { player: 'Ana' })).toBe('Ana odbacuje 3 karte');
+    expect(tPlural(t, 'hr', 'event.discarded', 5, { player: 'Ana' })).toBe('Ana odbacuje 5 karata');
+    expect(tPlural(t, 'hr', 'event.discarded', 21, { player: 'Ana' })).toBe(
+      'Ana odbacuje 21 kartu',
+    );
+  });
+
+  it('works without extra params', () => {
+    expect(tPlural(createT('en'), 'en', 'map.fleets', 2)).toBe('2 fleets');
+    expect(tPlural(createT('hr'), 'hr', 'map.fleets', 2)).toBe(
+      hr['map.fleets.few'].replace('{count}', '2'),
+    );
   });
 });

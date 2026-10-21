@@ -1,6 +1,6 @@
 import { memo } from 'react';
 import type { KeyboardEvent, ReactNode } from 'react';
-import { plural } from '@starhold/i18n';
+import { tPlural } from '@starhold/i18n';
 import type { Locale, Translate } from '@starhold/i18n';
 import type { Resource, SectorId, SectorKind, Structure } from '@starhold/engine';
 import { playerStyle, spaceTheme } from '@starhold/theme-space';
@@ -51,16 +51,7 @@ function ariaLabel(p: SectorHexProps, t: Translate, locale: Locale): string {
   const parts = [baseLabel(p, t)];
   if (p.ownerSeat === null) parts.push(t('map.unclaimed'));
   else parts.push(p.mine ? t('map.yours') : t('map.ownedBy', { player: p.ownerName ?? '' }));
-  if (p.fleets > 0) {
-    const params = { count: p.fleets };
-    parts.push(
-      plural(locale, p.fleets, {
-        one: t('map.fleets.one', params),
-        few: t('map.fleets.few', params),
-        other: t('map.fleets.other', params),
-      }),
-    );
-  }
+  if (p.fleets > 0) parts.push(tPlural(t, locale, 'map.fleets', p.fleets));
   if (p.structure === 'colony') parts.push(t('theme.space.unit.colony'));
   if (p.structure === 'starbase') parts.push(t('theme.space.unit.starbase'));
   if (p.tradeStation) parts.push(t('theme.space.sector.tradeStation'));
