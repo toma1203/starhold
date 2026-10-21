@@ -186,3 +186,12 @@ describe('battleVariant', () => {
     expect(eventText(SAMPLES.battle[2]!, view, t, 'en')).toContain('conquers');
   });
 });
+
+describe('home sector names', () => {
+  it('put the owner through the dictionary in both languages', () => {
+    const home = view.players[0]!.homeId;
+    const event: GameEvent = { type: 'pirateMoved', player: 'p2', to: home };
+    expect(eventText(event, view, createT('en'), 'en')).toContain('Home system (Pilot 1)');
+    expect(eventText(event, view, createT('hr'), 'hr')).toContain('Matični sustav (Pilot 1)');
+  });
+});

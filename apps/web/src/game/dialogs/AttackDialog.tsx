@@ -1,7 +1,8 @@
-import { useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { attackWinChance, conquestChance } from '@starhold/bots';
-import { legalActions, maxAttackDice } from '@starhold/engine';
+import { maxAttackDice } from '@starhold/engine';
 import type { PlayerId, PlayerView, SectorId } from '@starhold/engine';
+import type { MessageKey } from '@starhold/i18n';
 import { useT } from '../../i18n/useT.ts';
 import { useGameStore } from '../../store/gameStore.ts';
 import { Button } from '../../ui/Button.tsx';
@@ -9,6 +10,7 @@ import { Dialog } from '../../ui/Dialog.tsx';
 import { battleVariant } from '../eventText.ts';
 import type { BattleEvent } from '../eventText.ts';
 import { sectorLabel } from '../format.ts';
+import { legalActionsFor } from '../legalCache.ts';
 
 export interface AttackDialogProps {
   view: PlayerView;
@@ -33,14 +35,20 @@ function Dice({ label, rolls }: { label: string; rolls: number[] }) {
   );
 }
 
-/** The newest battle of mine on this route logged after entry `after`, if any. */
-function useBattleAfter(after: number | null, me: PlayerId, from: SectorId, to: SectorId) {
+/** Where the log and the error counter stood when the attack was sent. */
+interface Sent {
+  log: number;
+  error: number;
+}
+
+/** The first battle of mine on this route logged after the attack was sent, if any. */
+function useBattleAfter(sent: Sent | null, me: PlayerId, from: SectorId, to: SectorId) {
   return useGameStore((s): BattleEvent | null => {
-    if (after === null) return null;
+    if (sent === null) return null;
     for (const entry of s.log) {
       const e = entry.event;
       if (
-        entry.id > after &&
+        entry.id > sent.log &&
         e.type === 'battle' &&
         e.attacker === me &&
         e.from === from &&
@@ -53,15 +61,42 @@ function useBattleAfter(after: number | null, me: PlayerId, from: SectorId, to: 
   });
 }
 
-/** Set up an attack (dice and fleets to move in), send it, then show what was rolled. */
+/** A server error that arrived after the attack was sent. */
+function useErrorAfter(sent: Sent | null): MessageKey | null {
+  return useGameStore((s) =>
+    sent !== null && s.lastActionError !== null && s.lastActionError.id > sent.error
+      ? s.lastActionError.code
+      : null,
+  );
+}
+
+/**
+ * Set up an attack (dice and fleets to move in), send it, then show what was rolled. A rejected
+ * attack (a server error before any battle) brings the setup form back with the error.
+ */
 export function AttackDialog({ view, me, from, to, onClose }: AttackDialogProps) {
   const t = useT();
   const sendAction = useGameStore((s) => s.sendAction);
   const moveId = useId();
   const [dicePick, setDicePick] = useState<number | null>(null); // null = the most
   const [movePick, setMovePick] = useState<number | null>(null); // null = the most
-  const [sentAfter, setSentAfter] = useState<number | null>(null);
-  const result = useBattleAfter(sentAfter, me, from, to);
+  const [sent, setSent] = useState<Sent | null>(null);
+  const result = useBattleAfter(sent, me, from, to);
+  const error = useErrorAfter(sent);
+  const stage = sent === null ? 'setup' : result ? 'result' : error ? 'rejected' : 'waiting';
+
+  // After a stage change the focused control is gone: move focus to what replaced it.
+  const statusBox = useRef<HTMLDivElement>(null);
+  const errorLine = useRef<HTMLParagraphElement>(null);
+  const sendRow = useRef<HTMLDivElement>(null);
+  const firstRender = useRef(true);
+  useEffect(() => {
+    if (firstRender.current) {
+      firstRender.current = false;
+      return;
+    }
+    (statusBox.current ?? errorLine.current ?? sendRow.current?.querySelector('button'))?.focus();
+  }, [stage]);
 
   const origin = view.sectors[from];
   const target = view.sectors[to];
@@ -75,45 +110,48 @@ export function AttackDialog({ view, me, from, to, onClose }: AttackDialogProps)
   const title = t('game.attack');
 
   const send = () => {
+    const { log, lastActionError } = useGameStore.getState();
     sendAction({ type: 'attack', from, to, dice: dice as 1 | 2 | 3, moveIfConquered: move });
-    setSentAfter(useGameStore.getState().log.at(-1)?.id ?? 0);
+    setSent({ log: log.at(-1)?.id ?? 0, error: lastActionError?.id ?? 0 });
   };
 
-  if (sentAfter !== null) {
+  if (stage === 'waiting' || stage === 'result') {
     const variant = result ? battleVariant(result) : null;
     const again =
       variant !== null &&
       variant !== 'conquered' &&
-      legalActions(view, me).some((a) => a.type === 'attack' && a.from === from && a.to === to);
+      legalActionsFor(view, me).some((a) => a.type === 'attack' && a.from === from && a.to === to);
     return (
       <Dialog title={title} onClose={onClose}>
-        {result === null || variant === null ? (
-          <p role="status">{t('game.attack.waiting')}</p>
-        ) : (
-          <>
-            <Dice label={t('game.attack.attackerDice')} rolls={result.attackRoll} />
-            <Dice label={t('game.attack.defenderDice')} rolls={result.defendRoll} />
-            <p>
-              {t('game.attack.losses', {
-                attackerLosses: result.attackerLosses,
-                defenderLosses: result.defenderLosses,
-              })}
-            </p>
-            <p role="status" className="battle-result">
-              {t(`game.attack.result.${variant}`)}
-            </p>
-            {again && (
-              <Button
-                variant="primary"
-                onClick={() => {
-                  setSentAfter(null);
-                  setMovePick(null);
-                }}
-              >
-                {t('game.attack.again')}
-              </Button>
-            )}
-          </>
+        <div ref={statusBox} tabIndex={-1} className="attack-status">
+          {result === null || variant === null ? (
+            <p role="status">{t('game.attack.waiting')}</p>
+          ) : (
+            <>
+              <Dice label={t('game.attack.attackerDice')} rolls={result.attackRoll} />
+              <Dice label={t('game.attack.defenderDice')} rolls={result.defendRoll} />
+              <p>
+                {t('game.attack.losses', {
+                  attackerLosses: result.attackerLosses,
+                  defenderLosses: result.defenderLosses,
+                })}
+              </p>
+              <p role="status" className="battle-result">
+                {t(`game.attack.result.${variant}`)}
+              </p>
+            </>
+          )}
+        </div>
+        {again && (
+          <Button
+            variant="primary"
+            onClick={() => {
+              setSent(null);
+              setMovePick(null);
+            }}
+          >
+            {t('game.attack.again')}
+          </Button>
         )}
       </Dialog>
     );
@@ -121,6 +159,11 @@ export function AttackDialog({ view, me, from, to, onClose }: AttackDialogProps)
 
   return (
     <Dialog title={title} onClose={onClose}>
+      {error && (
+        <p role="alert" tabIndex={-1} ref={errorLine} className="form-error">
+          {t(error)}
+        </p>
+      )}
       <p>{t('game.route', { from: sectorLabel(view, from, t), to: sectorLabel(view, to, t) })}</p>
       <p className="chance">
         {t('game.attack.captureChance', {
@@ -152,9 +195,11 @@ export function AttackDialog({ view, me, from, to, onClose }: AttackDialogProps)
         />
         <output htmlFor={moveId}>{move}</output>
       </div>
-      <Button variant="primary" onClick={send}>
-        {title}
-      </Button>
+      <div ref={sendRow} className="button-row">
+        <Button variant="primary" onClick={send}>
+          {title}
+        </Button>
+      </div>
     </Dialog>
   );
 }

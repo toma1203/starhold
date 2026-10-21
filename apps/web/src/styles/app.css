@@ -857,3 +857,15 @@ select {
     min-height: 2.5rem;
   }
 }
+
+.form-error {
+  margin: 0;
+  font-weight: 600;
+  color: var(--color-danger);
+}
+
+.attack-status {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}

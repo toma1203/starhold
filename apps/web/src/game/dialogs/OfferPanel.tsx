@@ -1,9 +1,9 @@
-import { legalActions } from '@starhold/engine';
 import type { PlayerId, PlayerView } from '@starhold/engine';
 import { useT } from '../../i18n/useT.ts';
 import { useGameStore } from '../../store/gameStore.ts';
 import { Button } from '../../ui/Button.tsx';
 import { bagText, playerName } from '../format.ts';
+import { legalActionsFor } from '../legalCache.ts';
 
 /** The open trade offer: incoming (accept / decline) for others, answers and confirm for the offerer. */
 export function OfferPanel({ view, me }: { view: PlayerView; me: PlayerId }) {
@@ -11,7 +11,7 @@ export function OfferPanel({ view, me }: { view: PlayerView; me: PlayerId }) {
   const sendAction = useGameStore((s) => s.sendAction);
   const offer = view.offer;
   if (!offer) return null;
-  const actions = legalActions(view, me);
+  const actions = legalActionsFor(view, me);
   const give = bagText(offer.give, t);
   const want = bagText(offer.want, t);
 

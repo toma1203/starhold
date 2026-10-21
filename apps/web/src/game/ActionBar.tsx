@@ -1,5 +1,5 @@
 import { useId } from 'react';
-import { COSTS, bagTotal, hasAtLeast, legalActions } from '@starhold/engine';
+import { COSTS, bagTotal, hasAtLeast } from '@starhold/engine';
 import type { Action, PlayerId, PlayerView, SectorId } from '@starhold/engine';
 import type { MessageKey } from '@starhold/i18n';
 import { useT } from '../i18n/useT.ts';
@@ -7,6 +7,7 @@ import { useGameStore } from '../store/gameStore.ts';
 import { Button } from '../ui/Button.tsx';
 import type { TradeTab } from './dialogs/TradeDialog.tsx';
 import { bagText } from './format.ts';
+import { legalActionsFor } from './legalCache.ts';
 
 type BuildKind = 'fleet' | 'colony' | 'starbase';
 
@@ -72,7 +73,7 @@ export function ActionBar({ view, me, selected, onTrade }: ActionBarProps) {
   const sendAction = useGameStore((s) => s.sendAction);
   const current = view.players[view.current];
   const myTurn = current?.id === me;
-  const actions = legalActions(view, me);
+  const actions = legalActionsFor(view, me);
   const can = (type: Action['type']) => actions.some((a) => a.type === type);
   const hand = view.players.find((p) => p.id === me)?.resources ?? null;
   const inMain = view.phase === 'MAIN';

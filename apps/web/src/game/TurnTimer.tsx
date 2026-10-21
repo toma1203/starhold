@@ -10,7 +10,7 @@ export function TurnTimer({ deadline }: { deadline: number | null }) {
   if (left === null) return null;
   return (
     <span role="timer" className="turn-timer" data-warning={left <= WARNING_SECONDS}>
-      {`${t('game.timer')}: ${t('common.seconds', { count: left })}`}
+      {t('game.timerValue', { seconds: left })}
     </span>
   );
 }

@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { RESOURCES, legalActions, tradeRate } from '@starhold/engine';
+import { RESOURCES, tradeRate } from '@starhold/engine';
 import type { PlayerId, PlayerView, Resource } from '@starhold/engine';
 import { useT } from '../../i18n/useT.ts';
 import { useGameStore } from '../../store/gameStore.ts';
 import { Button } from '../../ui/Button.tsx';
+import { legalActionsFor } from '../legalCache.ts';
 import { ResourceLabel } from '../ResourceLabel.tsx';
 
 function Picker({
@@ -41,7 +42,7 @@ export function BankTab({ view, me }: { view: PlayerView; me: PlayerId }) {
   const [give, setGive] = useState<Resource | null>(null);
   const [get, setGet] = useState<Resource | null>(null);
   const rate = tradeRate(view, me);
-  const actions = legalActions(view, me);
+  const actions = legalActionsFor(view, me);
   const affordable = (r: Resource) => actions.some((a) => a.type === 'bankTrade' && a.give === r);
   const legal =
     give !== null &&

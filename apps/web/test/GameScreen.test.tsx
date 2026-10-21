@@ -255,6 +255,16 @@ describe('GameScreen', () => {
     expect(screen.getByRole('button', { name: /Build fleet/ })).toBeTruthy();
   });
 
+  it('closes an open dialog when the phase changes on the same turn', async () => {
+    const state = main(bag(4, 0, 0, 0));
+    seedGame(state, 'p1');
+    render(<GameScreen />);
+    await userEvent.setup().click(screen.getByRole('button', { name: t('game.bankTrade') }));
+    expect(screen.getByRole('dialog')).toBeTruthy();
+    act(() => pushState(inPhase(state, 'PIRATE', 0), 'p1'));
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
   it('closes an open dialog when the turn passes to somebody else', async () => {
     const state = main(bag(4, 0, 0, 0));
     seedGame(state, 'p1');
@@ -263,6 +273,35 @@ describe('GameScreen', () => {
     expect(screen.getByRole('dialog')).toBeTruthy();
     act(() => pushState(inPhase(state, 'ROLL', 1), 'p1'));
     expect(screen.queryByRole('dialog')).toBeNull();
+  });
+});
+
+describe('GameScreen discard rounds', () => {
+  function discarding(pending: number, hand = bag(4, 3, 1, 0)): GameState {
+    return {
+      ...withBag(inPhase(makeState(3, 1), 'DISCARD', 0), 'p1', hand),
+      pendingDiscards: { p1: pending },
+    };
+  }
+  const count = (resource: string) =>
+    within(screen.getByRole('group', { name: resource })).getAllByText(/^\d+$/)[0]!.textContent;
+
+  it('starts every discard round with empty steppers', async () => {
+    seedGame(discarding(3), 'p1');
+    render(<GameScreen />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'More: Metal' }));
+    await user.click(screen.getByRole('button', { name: 'More: Metal' }));
+    expect(count('Metal')).toBe('2');
+
+    act(() => pushState(withBag(inPhase(makeState(3, 1), 'MAIN', 0), 'p1', bag(1, 1, 1, 1)), 'p1'));
+    expect(screen.queryByRole('dialog', { name: t('game.discardTitle') })).toBeNull();
+
+    act(() => pushState(discarding(2, bag(1, 1, 5, 1)), 'p1'));
+    expect(screen.getByRole('dialog', { name: t('game.discardTitle') })).toBeTruthy();
+    expect(count('Metal')).toBe('0');
+    const confirm = screen.getByRole('button', { name: t('game.confirm') }) as HTMLButtonElement;
+    expect(confirm.disabled).toBe(true);
   });
 });
 
@@ -497,7 +536,7 @@ describe('TurnTimer', () => {
     vi.setSystemTime(new Date('2026-01-01T00:00:00Z'));
     render(<TurnTimer deadline={Date.now() + 30_000} />);
     const timer = screen.getByRole('timer');
-    expect(timer.textContent).toBe(`${t('game.timer')}: ${t('common.seconds', { count: 30 })}`);
+    expect(timer.textContent).toBe(t('game.timerValue', { seconds: 30 }));
     expect(timer.getAttribute('data-warning')).toBe('false');
     act(() => {
       vi.advanceTimersByTime(20_000);

@@ -28,12 +28,19 @@ export interface Toast {
   params?: Params;
 }
 
+/** The newest server error; its id comes from the counter shared with log entries and toasts. */
+export interface ActionError {
+  id: number;
+  code: MessageKey;
+}
+
 export interface GameStore {
   connection: 'connecting' | 'online' | 'offline';
   room: RoomInfo | null;
   game: GameStatePayload | null;
   log: LogEntry[];
   toasts: Toast[];
+  lastActionError: ActionError | null;
   locale: Locale;
   muted: boolean;
   /** Room code this socket is bound to on the server; cleared on disconnect. */
@@ -98,6 +105,7 @@ export const useGameStore = create<GameStore>()((set, get) => {
     game: null,
     log: [],
     toasts: [],
+    lastActionError: null,
     locale: initialLocale(),
     muted: loadMuted(),
     activeCode: null,
@@ -218,7 +226,9 @@ export function bindSocket(live: AppSocket): void {
     })),
   );
 
-  live.on('error', ({ code }) => set((s) => withToast(s, code)));
+  live.on('error', ({ code }) =>
+    set((s) => ({ ...withToast(s, code), lastActionError: { id: nextId++, code } })),
+  );
 
   live.on('room:closed', ({ reason }) => {
     const code = get().room?.code ?? codeFromPath() ?? get().activeCode;

@@ -11,7 +11,8 @@ import { MoveDialog } from '../src/game/dialogs/MoveDialog.tsx';
 import { OfferPanel } from '../src/game/dialogs/OfferPanel.tsx';
 import { PirateHint } from '../src/game/dialogs/PirateHint.tsx';
 import { TradeDialog } from '../src/game/dialogs/TradeDialog.tsx';
-import { useGameStore } from '../src/store/gameStore.ts';
+import { bindSocket, useGameStore } from '../src/store/gameStore.ts';
+import { FakeSocket } from './fakeSocket.ts';
 import {
   bag,
   inPhase,
@@ -167,15 +168,11 @@ describe('DiscardDialog', () => {
     vi.setSystemTime(new Date('2026-01-01T00:00:00Z'));
     seedGame(discarding(), 'p1');
     render(<DiscardDialog view={liveView()} me="p1" deadline={Date.now() + 25_000} />);
-    expect(
-      screen.getByText(`${t('game.timer')}: ${t('common.seconds', { count: 25 })}`),
-    ).toBeTruthy();
+    expect(screen.getByText(t('game.timerValue', { seconds: 25 }))).toBeTruthy();
     act(() => {
       vi.advanceTimersByTime(5_000);
     });
-    expect(
-      screen.getByText(`${t('game.timer')}: ${t('common.seconds', { count: 20 })}`),
-    ).toBeTruthy();
+    expect(screen.getByText(t('game.timerValue', { seconds: 20 }))).toBeTruthy();
   });
 
   it('is not dismissible and renders nothing when nothing is owed', async () => {
@@ -364,6 +361,55 @@ describe('AttackDialog', () => {
     act(() => pushEvents(battle({ conquered: true, defenderLosses: 2 })));
     expect(screen.getByText(t('game.attack.result.conquered'))).toBeTruthy();
     expect(screen.queryByRole('button', { name: t('game.attack.again') })).toBeNull();
+  });
+
+  it('returns to the setup form with the error when the server rejects the attack', async () => {
+    const { sendAction } = open();
+    const fake = new FakeSocket();
+    bindSocket(fake.asSocket());
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: t('game.attack') }));
+    expect(screen.getByText(t('game.attack.waiting'))).toBeTruthy();
+    act(() => fake.trigger('error', { code: 'err.invalidDice' }));
+    expect(screen.queryByText(t('game.attack.waiting'))).toBeNull();
+    expect(screen.getByRole('alert').textContent).toBe(t('err.invalidDice'));
+    // the form works again
+    await user.click(screen.getByRole('button', { name: t('game.attack') }));
+    expect(sendAction).toHaveBeenCalledTimes(2);
+    expect(screen.getByText(t('game.attack.waiting'))).toBeTruthy();
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('is not fooled by an error from before the attack was sent', async () => {
+    open();
+    const fake = new FakeSocket();
+    bindSocket(fake.asSocket());
+    act(() => fake.trigger('error', { code: 'err.rateLimited' }));
+    await userEvent.setup().click(screen.getByRole('button', { name: t('game.attack') }));
+    expect(screen.getByText(t('game.attack.waiting'))).toBeTruthy();
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('a battle result wins over a later error', async () => {
+    open();
+    const fake = new FakeSocket();
+    bindSocket(fake.asSocket());
+    await userEvent.setup().click(screen.getByRole('button', { name: t('game.attack') }));
+    act(() => pushEvents(battle()));
+    act(() => fake.trigger('error', { code: 'err.rateLimited' }));
+    expect(screen.getByText(t('game.attack.result.won'))).toBeTruthy();
+  });
+
+  it('moves focus to the status region after sending and again after a result', async () => {
+    open();
+    await userEvent.setup().click(screen.getByRole('button', { name: t('game.attack') }));
+    const dialog = screen.getByRole('dialog');
+    expect(dialog.contains(document.activeElement)).toBe(true);
+    expect(document.activeElement).not.toBe(document.body);
+    expect(document.activeElement?.textContent).toContain(t('game.attack.waiting'));
+    act(() => pushEvents(battle()));
+    expect(dialog.contains(document.activeElement)).toBe(true);
+    expect(document.activeElement?.textContent).toContain(t('game.attack.result.won'));
   });
 
   it('keeps working when the game state moves on underneath it', async () => {

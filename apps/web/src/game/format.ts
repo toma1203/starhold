@@ -30,8 +30,9 @@ export function sectorLabel(view: PlayerView, id: SectorId, t: Translate): strin
       : t('map.sector.resource', { resource, number: sector.number });
   }
   if (sector.kind === 'home') {
-    const home = t('theme.space.sector.home');
-    return sector.owner === null ? home : `${home} (${playerName(view, sector.owner)})`;
+    return sector.owner === null
+      ? t('theme.space.sector.home')
+      : t('map.sector.homeOf', { name: playerName(view, sector.owner) });
   }
   return t('theme.space.sector.nebula');
 }

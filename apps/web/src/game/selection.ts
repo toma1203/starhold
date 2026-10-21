@@ -1,5 +1,5 @@
-import { legalActions } from '@starhold/engine';
 import type { Action, PlayerId, PlayerView, SectorId } from '@starhold/engine';
+import { legalActionsFor } from './legalCache.ts';
 
 export type Intent =
   | { kind: 'expand' | 'attack' | 'fortify'; from: SectorId; to: SectorId }
@@ -21,7 +21,7 @@ export function intentsFor(
 ): Intent[] {
   const intents: Intent[] = [];
   let canBuild = false;
-  for (const action of legalActions(view, me)) {
+  for (const action of legalActionsFor(view, me)) {
     switch (action.type) {
       case 'movePirate':
         if (action.to === clicked) intents.push({ kind: 'pirate', to: clicked });
@@ -66,7 +66,7 @@ export function highlightTargets(
   selected: SectorId | null,
 ): Set<SectorId> {
   const targets = new Set<SectorId>();
-  for (const action of legalActions(view, me)) {
+  for (const action of legalActionsFor(view, me)) {
     const to = targetOf(action, selected);
     if (to !== null) targets.add(to);
   }

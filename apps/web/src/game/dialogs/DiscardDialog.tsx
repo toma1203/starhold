@@ -8,22 +8,18 @@ import { Dialog } from '../../ui/Dialog.tsx';
 import { TurnTimer } from '../TurnTimer.tsx';
 import { BagSteppers } from './BagSteppers.tsx';
 
-/** The seven-roll penalty: choose exactly the owed number of cards. Cannot be dismissed. */
-export function DiscardDialog({
-  view,
-  me,
-  deadline,
-}: {
+interface DiscardProps {
   view: PlayerView;
   me: PlayerId;
   deadline: number | null;
-}) {
+}
+
+/** The picks live here, so they start from zero every time this form is mounted. */
+function DiscardForm({ view, me, deadline, owed }: DiscardProps & { owed: number }) {
   const t = useT();
   const sendAction = useGameStore((s) => s.sendAction);
   const [chosen, setChosen] = useState(emptyBag);
-  const owed = view.pendingDiscards[me] ?? 0;
-  const hand = view.players.find((p) => p.id === me)?.resources;
-  if (owed <= 0 || !hand) return null;
+  const hand = view.players.find((p) => p.id === me)?.resources ?? emptyBag();
 
   const total = bagTotal(chosen);
   const step = (resource: Resource, delta: 1 | -1) =>
@@ -48,4 +44,11 @@ export function DiscardDialog({
       </Button>
     </Dialog>
   );
+}
+
+/** The seven-roll penalty: choose exactly the owed number of cards. Cannot be dismissed. */
+export function DiscardDialog(props: DiscardProps) {
+  const owed = props.view.pendingDiscards[props.me] ?? 0;
+  // Nothing owed unmounts the form, so a later round never inherits old picks.
+  return owed > 0 ? <DiscardForm {...props} owed={owed} /> : null;
 }

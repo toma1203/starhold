@@ -100,6 +100,20 @@ describe('game:events log', () => {
 });
 
 describe('errors and toasts', () => {
+  it('records the latest error with an id that grows with every error and log entry', () => {
+    expect(useGameStore.getState().lastActionError).toBeNull();
+    socket.trigger('error', { code: 'err.invalidDice' });
+    const first = useGameStore.getState().lastActionError;
+    expect(first?.code).toBe('err.invalidDice');
+    socket.trigger('game:events', [{ type: 'tradeCancelled' }]);
+    const logId = useGameStore.getState().log.at(-1)!.id;
+    expect(logId).toBeGreaterThan(first!.id);
+    socket.trigger('error', { code: 'err.notYourTurn' });
+    const second = useGameStore.getState().lastActionError;
+    expect(second?.code).toBe('err.notYourTurn');
+    expect(second!.id).toBeGreaterThan(logId);
+  });
+
   it('error event pushes toast with code key', () => {
     socket.trigger('error', { code: 'err.notHost' });
     const { toasts } = useGameStore.getState();
