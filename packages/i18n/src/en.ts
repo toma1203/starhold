@@ -270,6 +270,19 @@ export const en = {
   'common.points.few': '{count} points',
   'common.points.other': '{count} points',
 
+  // Galaxy map
+  'map.title': 'Galaxy map',
+  'map.resetView': 'Reset view',
+  'map.sector.resource': '{resource} {number}',
+  'map.yours': 'yours',
+  'map.ownedBy': 'owned by {player}',
+  'map.unclaimed': 'unclaimed',
+  'map.fleets.one': '{count} fleet',
+  'map.fleets.few': '{count} fleets',
+  'map.fleets.other': '{count} fleets',
+  'map.selected': 'selected',
+  'map.target': 'valid target',
+
   // Theme: space
   'theme.space.resource.metal': 'Metal',
   'theme.space.resource.energy': 'Energy',

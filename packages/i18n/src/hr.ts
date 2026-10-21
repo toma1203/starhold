@@ -249,6 +249,19 @@ export const hr: Record<MessageKey, string> = {
   'common.points.few': '{count} boda',
   'common.points.other': '{count} bodova',
 
+  // Galaxy map
+  'map.title': 'Galaktička karta',
+  'map.resetView': 'Poništi prikaz',
+  'map.sector.resource': '{resource} {number}',
+  'map.yours': 'vaš',
+  'map.ownedBy': 'vlasnik: {player}',
+  'map.unclaimed': 'slobodan',
+  'map.fleets.one': '{count} flota',
+  'map.fleets.few': '{count} flote',
+  'map.fleets.other': '{count} flota',
+  'map.selected': 'odabran',
+  'map.target': 'moguće odredište',
+
   // Theme: space
   'theme.space.resource.metal': 'Metal',
   'theme.space.resource.energy': 'Energija',
