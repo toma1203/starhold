@@ -20,9 +20,11 @@ import { PlayerList } from '../game/PlayerList.tsx';
 import { ResourcePanel } from '../game/ResourcePanel.tsx';
 import { intentsFor } from '../game/selection.ts';
 import { TurnTimer } from '../game/TurnTimer.tsx';
+import { useAnnouncer } from '../game/useAnnouncer.ts';
 import { useMediaQuery } from '../game/useMediaQuery.ts';
 import { useT } from '../i18n/useT.ts';
 import { useGameStore } from '../store/gameStore.ts';
+import { MuteToggle } from '../ui/MuteToggle.tsx';
 
 const PHASE_LABEL: Record<Phase, MessageKey> = {
   HOME_BONUS: 'game.phase.homeBonus',
@@ -62,6 +64,7 @@ function GameBoard({ view, me, seats, version, turnDeadline, discardDeadline }: 
 
   const myTurn = view.players[view.current]?.id === me;
   const canAct = myTurn && view.phase === 'MAIN';
+  const announcement = useAnnouncer(view, me);
   const hand = view.players.find((p) => p.id === me)?.resources ?? null;
 
   // A menu is a snapshot of one click; any new game state makes it stale.
@@ -121,7 +124,11 @@ function GameBoard({ view, me, seats, version, turnDeadline, discardDeadline }: 
           <span>{t('game.lastRoll', { dice: `${view.dice[0]} + ${view.dice[1]}` })}</span>
         )}
         <TurnTimer deadline={turnDeadline} />
+        <MuteToggle />
       </header>
+      <div className="sr-only" aria-live="polite" aria-atomic="true">
+        {announcement}
+      </div>
       <PirateHint view={view} me={me} />
       <div className="game-body">
         <div className="game-map">
@@ -184,7 +191,7 @@ export function GameScreen() {
   const t = useT();
   const room = useGameStore((s) => s.room);
   const game = useGameStore((s) => s.game);
-  if (room === null || game === null) return <p className="screen">{t('game.reconnecting')}</p>;
+  if (room === null || game === null) return <p className="screen">{t('game.loading')}</p>;
   return (
     <GameBoard
       view={game.view}

@@ -34,6 +34,7 @@ export const en = {
   'err.rateLimited': 'Slow down, too many requests.',
   'err.serverFull': 'The server is full. Please try again later.',
   'err.notEnoughPlayers': 'At least 2 players are needed to start.',
+  'err.offline': "You're offline — check your connection.",
 
   // Room closed (room:closed reasons)
   'room.closed.expired': 'This room expired.',
@@ -65,6 +66,7 @@ export const en = {
   'lobby.you': 'You',
   'lobby.needPlayers': 'At least 2 players are needed.',
   'lobby.leave': 'Leave room',
+  'lobby.inviteLink': 'Invite link',
 
   // Game screen
   'game.phase.homeBonus': 'Home bonus',
@@ -101,11 +103,11 @@ export const en = {
   'game.homeBonusTitle': 'Home system bonus: choose a resource',
   'game.yourTurn': 'Your turn',
   'game.waitingFor': 'Waiting for {player}…',
-  'game.timer': 'Time left',
   'game.timerValue': 'Time left: {seconds} s',
   'game.afk': 'Away (a bot is playing)',
   'game.disconnected': 'Disconnected',
   'game.reconnecting': 'Reconnecting…',
+  'game.loading': 'Loading…',
   'game.vp': 'Victory points',
   'game.cards': 'Cards',
   'game.fleets': 'Fleets',
@@ -217,6 +219,10 @@ export const en = {
   'end.ranking': 'Final ranking',
   'end.reasonTarget': 'The victory target was reached.',
   'end.reasonRoundLimit': 'The round limit was reached. The most points win.',
+  'end.rank': 'Rank',
+  'end.player': 'Player',
+  'end.sectors': 'Sectors',
+  'end.conquests': 'Conquests',
 
   // Pages: rules
   'pages.rules.title': 'How to play',

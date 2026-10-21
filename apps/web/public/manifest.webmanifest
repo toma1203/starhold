@@ -1,0 +1,23 @@
+{
+  "id": "/",
+  "name": "Starhold",
+  "short_name": "Starhold",
+  "description": "Build, trade and conquer the galaxy: an online space strategy board game for 2 to 4 players.",
+  "lang": "en",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "theme_color": "#05070f",
+  "background_color": "#05070f",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    {
+      "src": "/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

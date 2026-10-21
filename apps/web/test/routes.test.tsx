@@ -91,7 +91,7 @@ describe('room route', () => {
     saveSession('ABCDE', { playerId: 'p1', token: TOKEN });
     render(<AppRoutes />);
     expect(screen.queryByLabelText(t('home.nickname'))).toBeNull();
-    expect(screen.getByText(t('game.reconnecting'))).toBeTruthy();
+    expect(screen.getByText(t('game.loading'))).toBeTruthy();
     act(() => socket.trigger('connect'));
     expect(socket.sent('room:rejoin')).toHaveLength(1);
     act(() => socket.trigger('room:state', room()));
@@ -117,21 +117,24 @@ describe('room route', () => {
     expect(socket.sent('room:rejoin')).toHaveLength(1);
   });
 
-  it('shows the game screen for a running game and a placeholder once it is finished', () => {
+  it('shows the game screen for a running game and the end screen once it is finished', () => {
     visit('/room/ABCDE');
     saveSession('ABCDE', { playerId: 'p1', token: TOKEN });
     useGameStore.setState({ room: room({ phase: 'IN_GAME' }), activeCode: 'ABCDE' });
     const { unmount } = render(<AppRoutes />);
     // the room is known, the first game state is not: GameScreen waits for it
-    expect(screen.getByText(t('game.reconnecting'))).toBeTruthy();
+    expect(screen.getByText(t('game.loading'))).toBeTruthy();
     seedGame(makeState(3, 1), 'p1');
     unmount();
     render(<AppRoutes />);
     expect(screen.getByRole('group', { name: t('map.title') })).toBeTruthy();
     cleanup();
-    useGameStore.setState({ room: room({ phase: 'FINISHED' }) });
+    seedGame({ ...makeState(3, 1), phase: 'FINISHED', winner: 'p2', endReason: 'target' }, 'p1');
+    useGameStore.setState({ room: room({ phase: 'FINISHED' }), activeCode: 'ABCDE' });
     render(<AppRoutes />);
-    expect(screen.getByText(t('game.phase.finished'))).toBeTruthy();
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(
+      t('end.winner', { player: 'Pilot 2' }),
+    );
   });
 
   it('room:closed shows a toast and returns home', () => {

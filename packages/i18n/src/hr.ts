@@ -30,6 +30,7 @@ export const hr: Record<MessageKey, string> = {
   'err.rateLimited': 'Uspori, previše zahtjeva.',
   'err.serverFull': 'Server je pun. Pokušaj ponovno kasnije.',
   'err.notEnoughPlayers': 'Za početak su potrebna najmanje 2 igrača.',
+  'err.offline': 'Nisi povezan — provjeri vezu.',
 
   // Room closed (room:closed reasons)
   'room.closed.expired': 'Ova soba je istekla.',
@@ -61,6 +62,7 @@ export const hr: Record<MessageKey, string> = {
   'lobby.you': 'Ti',
   'lobby.needPlayers': 'Potrebna su najmanje 2 igrača.',
   'lobby.leave': 'Napusti sobu',
+  'lobby.inviteLink': 'Poveznica za poziv',
 
   // Game screen
   'game.phase.homeBonus': 'Bonus matičnog sustava',
@@ -97,11 +99,11 @@ export const hr: Record<MessageKey, string> = {
   'game.homeBonusTitle': 'Bonus matičnog sustava: odaberi resurs',
   'game.yourTurn': 'Tvoj potez',
   'game.waitingFor': 'Čeka se {player}…',
-  'game.timer': 'Preostalo vrijeme',
   'game.timerValue': 'Preostalo vrijeme: {seconds} s',
   'game.afk': 'Nije tu (igra bot)',
   'game.disconnected': 'Veza prekinuta',
   'game.reconnecting': 'Ponovno povezivanje…',
+  'game.loading': 'Učitavanje…',
   'game.vp': 'Bodovi pobjede',
   'game.cards': 'Karte',
   'game.fleets': 'Flote',
@@ -197,6 +199,10 @@ export const hr: Record<MessageKey, string> = {
   'end.ranking': 'Konačni poredak',
   'end.reasonTarget': 'Dosegnut je cilj pobjede.',
   'end.reasonRoundLimit': 'Dosegnut je limit rundi. Pobjeđuje tko ima najviše bodova.',
+  'end.rank': 'Mjesto',
+  'end.player': 'Igrač',
+  'end.sectors': 'Sektori',
+  'end.conquests': 'Osvajanja',
 
   // Pages: rules
   'pages.rules.title': 'Kako igrati',

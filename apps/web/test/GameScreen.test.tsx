@@ -5,6 +5,7 @@ import { createT } from '@starhold/i18n';
 import type { GameEvent, GameState, SectorId } from '@starhold/engine';
 import { ActionBar } from '../src/game/ActionBar.tsx';
 import { EventLog } from '../src/game/EventLog.tsx';
+import { eventText } from '../src/game/eventText.ts';
 import { PlayerList } from '../src/game/PlayerList.tsx';
 import { ResourcePanel } from '../src/game/ResourcePanel.tsx';
 import { TurnTimer } from '../src/game/TurnTimer.tsx';
@@ -63,9 +64,9 @@ afterEach(() => {
 });
 
 describe('GameScreen', () => {
-  it('shows the reconnecting text until a game state arrives', () => {
+  it('shows the loading text until a game state arrives', () => {
     render(<GameScreen />);
-    expect(screen.getByText(t('game.reconnecting'))).toBeTruthy();
+    expect(screen.getByText(t('game.loading'))).toBeTruthy();
   });
 
   it('shows the map, the round and the phase', () => {
@@ -588,5 +589,71 @@ describe('EventLog', () => {
     useGameStore.setState({ locale: 'hr' });
     render(<EventLog view={useGameStore.getState().game!.view} />);
     expect(screen.getByText(createT('hr')('event.tradeCancelled'))).toBeTruthy();
+  });
+});
+
+describe('live region', () => {
+  const battle = (attacker: string, defender: string, attackerLosses = 0): GameEvent => ({
+    type: 'battle',
+    attacker,
+    defender,
+    from: HOME,
+    to: ENEMY,
+    attackRoll: [6],
+    defendRoll: [3],
+    attackerLosses,
+    defenderLosses: 1,
+    conquered: false,
+  });
+  const region = () => document.querySelectorAll('[aria-live="polite"]');
+  const said = () => region()[0]?.textContent?.replace(/\u00a0/g, '') ?? '';
+  const battleText = (e: GameEvent) => eventText(e, useGameStore.getState().game!.view, t, 'en');
+  const elsewhere = () => inPhase(makeState(3, 1), 'MAIN', 1);
+
+  it('is a single polite region', () => {
+    seedGame(elsewhere(), 'p1');
+    render(<GameScreen />);
+    expect(region()).toHaveLength(1);
+    expect(region()[0]?.getAttribute('aria-atomic')).toBe('true');
+  });
+
+  it('announces when it becomes my turn, but not on first render', () => {
+    seedGame(elsewhere(), 'p1');
+    render(<GameScreen />);
+    expect(said()).toBe('');
+    act(() => pushState(inPhase(makeState(3, 1), 'MAIN', 0), 'p1'));
+    expect(said()).toBe(t('game.yourTurn'));
+  });
+
+  it('announces battles that involve me, in the words of the event log', () => {
+    seedGame(elsewhere(), 'p1');
+    render(<GameScreen />);
+    const e = battle('p2', 'p1');
+    act(() => pushEvents(e));
+    expect(said()).toBe(battleText(e));
+    expect(said()).not.toBe('');
+  });
+
+  it('stays quiet for battles between other players', () => {
+    seedGame(elsewhere(), 'p1');
+    render(<GameScreen />);
+    act(() => pushEvents(battle('p2', 'p3')));
+    expect(said()).toBe('');
+  });
+
+  it('throttles bursts: one announcement per two seconds, newest wins', () => {
+    vi.useFakeTimers();
+    seedGame(elsewhere(), 'p1');
+    render(<GameScreen />);
+    const first = battle('p2', 'p1');
+    const second = battle('p3', 'p1', 2);
+    const third = battle('p2', 'p1', 1);
+    act(() => pushEvents(first));
+    expect(said()).toBe(battleText(first));
+    act(() => pushEvents(second));
+    act(() => pushEvents(third));
+    expect(said()).toBe(battleText(first));
+    act(() => void vi.advanceTimersByTime(2100));
+    expect(said()).toBe(battleText(third));
   });
 });

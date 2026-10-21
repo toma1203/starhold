@@ -6,6 +6,7 @@ import { loadNickname, saveNickname } from '../net/session.ts';
 import { useGameStore } from '../store/gameStore.ts';
 import { Button } from '../ui/Button.tsx';
 import { LanguageSwitch } from '../ui/LanguageSwitch.tsx';
+import { MuteToggle } from '../ui/MuteToggle.tsx';
 
 const CODE_LENGTH = 5;
 
@@ -88,6 +89,7 @@ export function HomeScreen() {
         <Link href="/privacy">{t('pages.privacy.title')}</Link>
         <Link href="/credits">{t('pages.credits.title')}</Link>
         <LanguageSwitch />
+        <MuteToggle />
       </nav>
     </main>
   );

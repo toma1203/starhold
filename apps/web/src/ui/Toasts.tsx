@@ -32,10 +32,12 @@ function ToastItem({ toast }: { toast: Toast }) {
 export function Toasts() {
   const toasts = useGameStore((s) => s.toasts);
   return (
-    <ul className="toasts" role="status" aria-live="polite">
-      {toasts.map((toast) => (
-        <ToastItem key={toast.id} toast={toast} />
-      ))}
-    </ul>
+    <div role="status" aria-live="polite">
+      <ul className="toasts">
+        {toasts.map((toast) => (
+          <ToastItem key={toast.id} toast={toast} />
+        ))}
+      </ul>
+    </div>
   );
 }

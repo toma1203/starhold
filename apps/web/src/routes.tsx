@@ -2,8 +2,11 @@ import { useEffect } from 'react';
 import { Route, Switch } from 'wouter';
 import { useT } from './i18n/useT.ts';
 import { loadSession } from './net/session.ts';
+import { CreditsPage } from './pages/CreditsPage.tsx';
 import { NotFoundPage } from './pages/NotFoundPage.tsx';
-import { TitlePage } from './pages/TitlePage.tsx';
+import { PrivacyPage } from './pages/PrivacyPage.tsx';
+import { RulesPage } from './pages/RulesPage.tsx';
+import { EndScreen } from './screens/EndScreen.tsx';
 import { GameScreen } from './screens/GameScreen.tsx';
 import { HomeScreen } from './screens/HomeScreen.tsx';
 import { JoinPrompt } from './screens/JoinPrompt.tsx';
@@ -28,11 +31,10 @@ function RoomRoute({ code }: { code: string }) {
   }, [needsRejoin, rejoin, code]);
 
   if (!hasSession) return <JoinPrompt code={code} />;
-  if (room?.code !== code) return <p className="screen">{t('game.reconnecting')}</p>;
+  if (room?.code !== code) return <p className="screen">{t('game.loading')}</p>;
   if (room.phase === 'LOBBY') return <LobbyScreen />;
   if (room.phase === 'IN_GAME') return <GameScreen />;
-  // EndScreen arrives with the end-of-game UI.
-  return <p className="screen">{t('game.phase.finished')}</p>;
+  return <EndScreen />;
 }
 
 export function AppRoutes() {
@@ -40,15 +42,9 @@ export function AppRoutes() {
     <Switch>
       <Route path="/" component={HomeScreen} />
       <Route path="/room/:code">{(params) => <RoomRoute code={params.code.toUpperCase()} />}</Route>
-      <Route path="/rules">
-        <TitlePage titleKey="pages.rules.title" />
-      </Route>
-      <Route path="/privacy">
-        <TitlePage titleKey="pages.privacy.title" />
-      </Route>
-      <Route path="/credits">
-        <TitlePage titleKey="pages.credits.title" />
-      </Route>
+      <Route path="/rules" component={RulesPage} />
+      <Route path="/privacy" component={PrivacyPage} />
+      <Route path="/credits" component={CreditsPage} />
       <Route component={NotFoundPage} />
     </Switch>
   );

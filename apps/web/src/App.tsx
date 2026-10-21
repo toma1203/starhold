@@ -6,8 +6,9 @@ import { Toasts } from './ui/Toasts.tsx';
 
 function ConnectionBanner() {
   const t = useT();
-  const connection = useGameStore((s) => s.connection);
-  if (connection === 'online') return null;
+  // Not before the very first connect, and only here: screens say "loading", not "reconnecting".
+  const lost = useGameStore((s) => s.connection === 'offline' && s.hasConnected);
+  if (!lost) return null;
   return (
     <div className="connection-banner" role="status">
       {t('game.reconnecting')}

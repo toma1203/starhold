@@ -19,7 +19,8 @@ export function EventLog({ view }: { view: PlayerView }) {
   return (
     <section className="event-log">
       <h2>{t('game.log')}</h2>
-      <div ref={box} className="event-log-box" role="log">
+      {/* The log is history, not news: the game screen's own live region announces what matters. */}
+      <div ref={box} className="event-log-box" role="log" aria-live="off">
         {log.length === 0 ? (
           <p className="hint">{t('game.logEmpty')}</p>
         ) : (

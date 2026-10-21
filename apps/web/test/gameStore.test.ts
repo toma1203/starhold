@@ -50,6 +50,15 @@ describe('connection', () => {
     socket.trigger('disconnect');
     expect(useGameStore.getState().connection).toBe('offline');
   });
+
+  it('remembers that it has connected at least once', () => {
+    expect(useGameStore.getState().hasConnected).toBe(false);
+    socket.trigger('connect_error', new Error('down'));
+    expect(useGameStore.getState().hasConnected).toBe(false);
+    socket.trigger('connect');
+    socket.trigger('disconnect');
+    expect(useGameStore.getState().hasConnected).toBe(true);
+  });
 });
 
 describe('game:state', () => {
@@ -78,6 +87,71 @@ describe('game:state', () => {
     socket.trigger('room:state', roomInfo('ABCDE', { phase: 'IN_GAME' }));
     expect(useGameStore.getState().game?.version).toBe(4);
     expect(useGameStore.getState().room?.phase).toBe('IN_GAME');
+  });
+});
+
+describe('game:state is scoped to its room', () => {
+  const visit = (path: string) => window.history.replaceState(null, '', path);
+
+  it('game:state before room:state on a fresh page is kept', () => {
+    visit('/room/ABCDE');
+    socket.trigger('game:state', payload(1));
+    socket.trigger('room:state', roomInfo('ABCDE', { phase: 'IN_GAME' }));
+    expect(useGameStore.getState().game?.version).toBe(1);
+    expect(useGameStore.getState().room?.code).toBe('ABCDE');
+  });
+
+  it('a newer room starts a new version baseline, even when its game:state comes first', () => {
+    visit('/room/ABCDE');
+    socket.trigger('room:state', roomInfo('ABCDE', { phase: 'IN_GAME' }));
+    socket.trigger('game:state', payload(9));
+    // The player moves on to another room while the store still holds the old one.
+    visit('/room/FGHJK');
+    socket.trigger('game:state', payload(1));
+    expect(useGameStore.getState().game?.version).toBe(1);
+    socket.trigger('room:state', roomInfo('FGHJK', { phase: 'IN_GAME' }));
+    expect(useGameStore.getState().game?.version).toBe(1);
+    // ...and the guard works inside the new room.
+    socket.trigger('game:state', payload(1));
+    socket.trigger('game:state', payload(0));
+    expect(useGameStore.getState().game?.version).toBe(1);
+    socket.trigger('game:state', payload(2));
+    expect(useGameStore.getState().game?.version).toBe(2);
+  });
+
+  it('events of the new room do not append to the old room log', () => {
+    visit('/room/ABCDE');
+    socket.trigger('game:events', [{ type: 'tradeCancelled' }]);
+    visit('/room/FGHJK');
+    socket.trigger('game:events', [{ type: 'tradeCancelled' }, { type: 'tradeCancelled' }]);
+    expect(useGameStore.getState().log).toHaveLength(2);
+  });
+
+  it('a failed rejoin drops the room, game and log for that code', async () => {
+    visit('/room/ABCDE');
+    saveSession('ABCDE', { playerId: 'p1', token: TOKEN });
+    socket.trigger('room:state', roomInfo('ABCDE', { phase: 'IN_GAME' }));
+    socket.trigger('game:state', payload(4));
+    socket.trigger('game:events', [{ type: 'tradeCancelled' }]);
+    socket.trigger('connect');
+    socket.ack('room:rejoin', { ok: false, error: 'err.roomNotFound' });
+    await flush();
+    const s = useGameStore.getState();
+    expect(s.room).toBeNull();
+    expect(s.game).toBeNull();
+    expect(s.log).toEqual([]);
+  });
+
+  it('a failed rejoin leaves a different room alone', async () => {
+    visit('/room/ABCDE');
+    saveSession('FGHJK', { playerId: 'p1', token: TOKEN });
+    socket.trigger('room:state', roomInfo('ABCDE', { phase: 'IN_GAME' }));
+    socket.trigger('game:state', payload(4));
+    void useGameStore.getState().rejoin('FGHJK');
+    socket.ack('room:rejoin', { ok: false, error: 'err.roomNotFound' });
+    await flush();
+    expect(useGameStore.getState().room?.code).toBe('ABCDE');
+    expect(useGameStore.getState().game?.version).toBe(4);
   });
 });
 
@@ -193,6 +267,8 @@ describe('rejoin on connect', () => {
 });
 
 describe('create and join', () => {
+  beforeEach(() => socket.trigger('connect'));
+
   it('createRoom saves the session and resolves the code', async () => {
     const p = useGameStore.getState().createRoom('Nova');
     expect(socket.sent('room:create')[0]?.[0]).toEqual({ name: 'Nova' });
@@ -221,6 +297,48 @@ describe('create and join', () => {
     await expect(bad).resolves.toBe(false);
     expect(loadSession('FGHJK')).toBeNull();
     expect(useGameStore.getState().toasts.at(-1)?.key).toBe('err.roomFull');
+  });
+
+  it('create and join acks are sent with an 8 s timeout', () => {
+    void useGameStore.getState().createRoom('Nova');
+    void useGameStore.getState().joinRoom('ABCDE', 'Nova');
+    expect(socket.timeoutOf('room:create')).toBe(8000);
+    expect(socket.timeoutOf('room:join')).toBe(8000);
+  });
+
+  it('a timed-out ack resolves null/false with the offline toast', async () => {
+    const created = useGameStore.getState().createRoom('Nova');
+    socket.ackTimeout('room:create');
+    await expect(created).resolves.toBeNull();
+    const joined = useGameStore.getState().joinRoom('ABCDE', 'Nova');
+    socket.ackTimeout('room:join');
+    await expect(joined).resolves.toBe(false);
+    expect(useGameStore.getState().toasts.map((t) => t.key)).toEqual([
+      'err.offline',
+      'err.offline',
+    ]);
+    expect(loadSession('ABCDE')).toBeNull();
+  });
+});
+
+describe('create and join while the socket is not connected', () => {
+  it('createRoom resolves null with the offline toast and sends nothing', async () => {
+    await expect(useGameStore.getState().createRoom('Nova')).resolves.toBeNull();
+    expect(socket.sent('room:create')).toHaveLength(0);
+    expect(useGameStore.getState().toasts.map((t) => t.key)).toEqual(['err.offline']);
+  });
+
+  it('joinRoom resolves false with the offline toast and sends nothing', async () => {
+    await expect(useGameStore.getState().joinRoom('ABCDE', 'Nova')).resolves.toBe(false);
+    expect(socket.sent('room:join')).toHaveLength(0);
+    expect(useGameStore.getState().toasts.map((t) => t.key)).toEqual(['err.offline']);
+  });
+
+  it('is offline again after a disconnect', async () => {
+    socket.trigger('connect');
+    socket.trigger('disconnect');
+    await expect(useGameStore.getState().createRoom('Nova')).resolves.toBeNull();
+    expect(useGameStore.getState().toasts.at(-1)?.key).toBe('err.offline');
   });
 });
 

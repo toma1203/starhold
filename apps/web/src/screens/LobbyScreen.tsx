@@ -93,7 +93,7 @@ function InviteLink({ code }: { code: string }) {
         ref={input}
         readOnly
         value={url}
-        aria-label={t('lobby.copyLink')}
+        aria-label={t('lobby.inviteLink')}
         onFocus={(e) => e.currentTarget.select()}
       />
     </div>
@@ -108,6 +108,7 @@ export function LobbyScreen() {
   const removeBot = useGameStore((s) => s.removeBot);
   const startGame = useGameStore((s) => s.startGame);
   const leaveRoom = useGameStore((s) => s.leaveRoom);
+  const needPlayersId = useId();
 
   if (room === null) return null;
   const isHost = room.hostId === room.you;
@@ -168,10 +169,19 @@ export function LobbyScreen() {
               </Button>
             ))}
           </div>
-          <Button variant="primary" disabled={!canStart} onClick={startGame}>
+          <Button
+            variant="primary"
+            disabled={!canStart}
+            aria-describedby={canStart ? undefined : needPlayersId}
+            onClick={startGame}
+          >
             {t('lobby.start')}
           </Button>
-          {!canStart && <p className="hint">{t('lobby.needPlayers')}</p>}
+          {!canStart && (
+            <p id={needPlayersId} className="hint">
+              {t('lobby.needPlayers')}
+            </p>
+          )}
         </section>
       ) : (
         <p className="hint">{t('lobby.waiting')}</p>

@@ -39,8 +39,10 @@ a {
   color: var(--color-accent);
 }
 
+/* The transparent outline is invisible normally but becomes a real ring in forced-colors mode. */
 :focus-visible {
-  outline: none;
+  outline: 2px solid transparent;
+  outline-offset: 2px;
   box-shadow: var(--focus-ring);
 }
 
@@ -868,4 +870,86 @@ select {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+}
+
+/* Static pages */
+.page-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+  justify-content: space-between;
+}
+
+.lead {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.page p,
+.page ul {
+  margin: 0;
+}
+
+.page ul {
+  padding-left: var(--space-5);
+}
+
+.page li + li {
+  margin-top: var(--space-2);
+}
+
+.rules-section h2 {
+  margin: 0;
+}
+
+/* End screen */
+.ranking {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.ranking caption {
+  padding-bottom: var(--space-2);
+  font-size: 1.15rem;
+  color: var(--color-text-muted);
+  text-align: left;
+}
+
+.ranking th,
+.ranking td {
+  padding: var(--space-2);
+  text-align: right;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.ranking th:nth-child(-n + 2),
+.ranking td:nth-child(-n + 2) {
+  text-align: left;
+}
+
+.ranking tr[data-winner='true'] td {
+  font-weight: 700;
+  color: var(--color-warning);
+}
+
+.ranking-player {
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.end-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.mute-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.75rem;
+  padding: var(--space-2);
 }
