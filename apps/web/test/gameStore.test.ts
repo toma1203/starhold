@@ -107,6 +107,7 @@ describe('game:state is scoped to its room', () => {
     socket.trigger('game:state', payload(9));
     // The player moves on to another room while the store still holds the old one.
     visit('/room/FGHJK');
+    useGameStore.setState({ activeCode: 'FGHJK' });
     socket.trigger('game:state', payload(1));
     expect(useGameStore.getState().game?.version).toBe(1);
     socket.trigger('room:state', roomInfo('FGHJK', { phase: 'IN_GAME' }));
@@ -117,6 +118,26 @@ describe('game:state is scoped to its room', () => {
     expect(useGameStore.getState().game?.version).toBe(1);
     socket.trigger('game:state', payload(2));
     expect(useGameStore.getState().game?.version).toBe(2);
+  });
+
+  it('while still bound to room A, a game:state for A is tagged A even on /room/B', () => {
+    visit('/room/ABCDE');
+    socket.trigger('room:state', roomInfo('ABCDE', { phase: 'IN_GAME' }));
+    useGameStore.setState({ activeCode: 'ABCDE' });
+    socket.trigger('game:state', payload(5));
+    // The address bar moves on (history navigation) before the socket is bound to B.
+    visit('/room/FGHJK');
+    socket.trigger('game:state', payload(6));
+    socket.trigger('game:events', [{ type: 'tradeCancelled' }]);
+    socket.trigger('room:state', roomInfo('ABCDE', { phase: 'IN_GAME' }));
+    const s = useGameStore.getState();
+    expect(s.gameCode).toBe('ABCDE');
+    expect(s.logCode).toBe('ABCDE');
+    // A's game is neither dropped by A's own room:state nor stuck behind a wrong baseline.
+    expect(s.game?.version).toBe(6);
+    expect(s.log).toHaveLength(1);
+    socket.trigger('game:state', payload(7));
+    expect(useGameStore.getState().game?.version).toBe(7);
   });
 
   it('events of the new room do not append to the old room log', () => {

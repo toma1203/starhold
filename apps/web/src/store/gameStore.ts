@@ -91,9 +91,13 @@ function codeFromPath(): string | null {
   return match?.[1] === undefined ? null : match[1].toUpperCase();
 }
 
-/** The room this client is looking at right now: address bar first, then what it is bound to. */
+/**
+ * The room the server is pushing state for: the one this socket is bound to, else the one on
+ * screen. The address bar only decides before the first bind (a fresh page), because on history
+ * navigation it can already name room B while the socket is still bound to room A.
+ */
 function currentCode(s: GameStore): string | null {
-  return codeFromPath() ?? s.activeCode ?? s.room?.code ?? null;
+  return s.activeCode ?? s.room?.code ?? codeFromPath();
 }
 
 function withToast(s: GameStore, key: MessageKey, params?: Params): Pick<GameStore, 'toasts'> {
@@ -141,6 +145,8 @@ export const useGameStore = create<GameStore>()((set, get) => {
       new Promise((resolve) => {
         const live = socket;
         if (live === null || !live.connected) return offline(resolve, null);
+        // A timed-out ack is reported once as an error; socket.io never calls this back again,
+        // so a late server reply cannot resolve the promise twice or save a session after the toast.
         live.timeout(ACK_TIMEOUT_MS).emit('room:create', { name }, (err, ack) => {
           if (err) return offline(resolve, null);
           resolve(adopt(ack) && ack.ok ? ack.code : null);
@@ -151,6 +157,7 @@ export const useGameStore = create<GameStore>()((set, get) => {
       new Promise((resolve) => {
         const live = socket;
         if (live === null || !live.connected) return offline(resolve, false);
+        // Same late-ack behaviour as createRoom: after a timeout the ack is dropped for good.
         live.timeout(ACK_TIMEOUT_MS).emit('room:join', { code, name }, (err, ack) => {
           if (err) return offline(resolve, false);
           resolve(adopt(ack));

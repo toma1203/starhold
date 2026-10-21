@@ -71,6 +71,13 @@ describe.each(['en', 'hr'] as const)('static pages in %s', (locale) => {
   });
 });
 
+describe('RulesPage tie-break', () => {
+  it('states the final tie-break by turn order in both languages', () => {
+    expect(createT('en')('pages.rules.goal.body')).toMatch(/turn order/i);
+    expect(createT('hr')('pages.rules.goal.body')).toMatch(/redoslijed/i);
+  });
+});
+
 describe('PrivacyPage content', () => {
   it('mentions localStorage, the nickname in memory, and no analytics', () => {
     useLocale('en');

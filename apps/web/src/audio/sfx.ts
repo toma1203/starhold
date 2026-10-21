@@ -6,7 +6,7 @@ export type SfxName = 'dice' | 'build' | 'battle' | 'conquer' | 'turn' | 'victor
  * Every sound is synthesised at play time from oscillators and filtered noise: there are no audio
  * files, data URLs or blobs, which keeps the strict Content-Security-Policy intact and the bundle
  * free of binary assets. Browsers only let an AudioContext start after a user gesture, so it is
- * created lazily on the first pointer or key press and sounds before that are silently dropped.
+ * created lazily on the first user gesture and sounds before that are silently dropped.
  */
 
 type ContextConstructor = new () => AudioContext;
@@ -16,7 +16,7 @@ let muted = false;
 let unlockInstalled = false;
 
 const MASTER_GAIN = 0.18;
-const GESTURES = ['pointerdown', 'keydown'] as const;
+const GESTURES = ['pointerdown', 'pointerup', 'click', 'touchend', 'keydown'] as const;
 
 function contextConstructor(): ContextConstructor | undefined {
   if (typeof window === 'undefined') return undefined;
@@ -28,7 +28,10 @@ export function setSfxMuted(value: boolean): void {
   muted = value;
 }
 
-function unlock(): void {
+const isRunning = (ctx: AudioContext): boolean => ctx.state === 'running';
+
+/** Creates the context if needed and asks it to start. Resolves once resume() has settled. */
+async function unlock(): Promise<void> {
   if (context === null) {
     const Ctor = contextConstructor();
     if (Ctor === undefined) return;
@@ -38,12 +41,13 @@ function unlock(): void {
       return; // Audio blocked or unsupported: the game stays silent.
     }
   }
-  if (context.state === 'suspended') void context.resume().catch(() => undefined);
+  if (!isRunning(context)) await context.resume().catch(() => undefined);
 }
 
 /**
- * Starts listening for the first user gesture, which is when the AudioContext may be created.
- * Returns a function that removes the listeners again.
+ * Starts listening for user gestures, which is when the AudioContext may be created and resumed.
+ * Not every gesture activates audio (iOS Safari ignores pointerdown, for one), so the listeners
+ * stay until the context is actually running. Returns a function that removes them again.
  */
 export function installAudioUnlock(): () => void {
   if (unlockInstalled || typeof window === 'undefined') return () => undefined;
@@ -52,11 +56,15 @@ export function installAudioUnlock(): () => void {
     for (const g of GESTURES) window.removeEventListener(g, handler, true);
   };
   const handler = () => {
-    unlock();
-    if (context !== null) remove();
+    void unlock().then(() => {
+      if (context !== null && isRunning(context)) remove();
+    });
   };
   for (const g of GESTURES) window.addEventListener(g, handler, true);
-  return remove;
+  return () => {
+    remove();
+    unlockInstalled = false;
+  };
 }
 
 interface Tone {

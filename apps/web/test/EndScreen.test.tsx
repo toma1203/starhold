@@ -109,6 +109,24 @@ describe('EndScreen', () => {
     expect(window.location.pathname).toBe('/');
   });
 
+  it('announces the result in a polite live region', async () => {
+    setup('p1');
+    const region = document.querySelector('[aria-live="polite"]');
+    expect(region).not.toBeNull();
+    // Filled after mount, so screen readers treat it as news rather than initial content.
+    await screen.findByText(`${t('end.winner', { player: 'Pilot 2' })} ${t('end.reasonTarget')}`, {
+      selector: '[aria-live="polite"]',
+    });
+  });
+
+  it('does not break when the game has no recorded winner', () => {
+    const state = { ...finished(), winner: null };
+    setup('p1', state);
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(
+      t('end.winner', { player: 'Pilot 2' }),
+    );
+  });
+
   it('waits for the game state when only the room is known', () => {
     useGameStore.setState({
       room: {

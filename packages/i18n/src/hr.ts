@@ -210,7 +210,7 @@ export const hr: Record<MessageKey, string> = {
     'Starhold je igra za 2 do 4 zapovjednika. Zauzimaj sektore heksagonalne galaksije, skupljaj resurse, trguj s protivnicima i bori se za prevlast. Pobjeđuje prvi zapovjednik koji dosegne cilj.',
   'pages.rules.goal.title': 'Cilj',
   'pages.rules.goal.body':
-    'Osvajaj bodove pobjede. Kolonija vrijedi 1 bod, zvjezdana baza 2, a dvije posebne nagrade donose po 2. Pobjeđuje prvi zapovjednik koji dosegne cilj; cilj je 6, 8 ili 10 bodova i bira se u postavkama sobe. Ako nitko ne stigne do cilja u 60 rundi, pobjeđuje igrač s najviše bodova, a izjednačenje se rješava brojem sektora, a zatim brojem flota.',
+    'Osvajaj bodove pobjede. Kolonija vrijedi 1 bod, zvjezdana baza 2, a dvije posebne nagrade donose po 2. Pobjeđuje prvi zapovjednik koji dosegne cilj; cilj je 6, 8 ili 10 bodova i bira se u postavkama sobe. Ako nitko ne stigne do cilja u 60 rundi, pobjeđuje igrač s najviše bodova, a izjednačenje se rješava brojem sektora, zatim brojem flota, a na kraju redoslijedom poteza (pobjeđuje igrač koji je ranije na redu).',
   'pages.rules.goal.timing':
     'Pobjeđuješ čim u svom potezu nakon bilo koje akcije dosegneš cilj. Ako ga dosegneš tijekom tuđeg poteza, pobjeđuješ na početku svog sljedećeg poteza, ako ga i dalje imaš.',
   'pages.rules.map.title': 'Galaksija',

@@ -34,8 +34,10 @@ class FakeContext {
   sampleRate = 8000;
   state = 'suspended';
   destination = {};
+  /** Like iOS Safari for a gesture that does not activate audio: resume() leaves it suspended. */
+  static blockResume = false;
   resume = vi.fn(() => {
-    this.state = 'running';
+    if (!FakeContext.blockResume) this.state = 'running';
     return Promise.resolve();
   });
   constructor() {
@@ -71,6 +73,7 @@ async function loadSfx(install = false): Promise<Sfx> {
 const gesture = () => window.dispatchEvent(new Event('pointerdown'));
 
 beforeEach(() => {
+  FakeContext.blockResume = false;
   created = { contexts: [], sources: [] };
 });
 
@@ -104,6 +107,48 @@ describe('playSfx', () => {
     expect(created.contexts[0]?.resume).toHaveBeenCalled();
     gesture();
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'a' }));
+    expect(created.contexts).toHaveLength(1);
+  });
+
+  it('keeps listening until the context is running, on several kinds of gesture', async () => {
+    vi.stubGlobal('AudioContext', FakeContext);
+    FakeContext.blockResume = true;
+    const sfx = await loadSfx(true);
+    gesture();
+    await Promise.resolve();
+    const ctx = created.contexts[0]!;
+    expect(ctx.state).toBe('suspended');
+    expect(ctx.resume).toHaveBeenCalledTimes(1);
+
+    // pointerdown did not activate audio: pointerup, click and touchend must all try again.
+    window.dispatchEvent(new Event('pointerup'));
+    window.dispatchEvent(new Event('click'));
+    window.dispatchEvent(new Event('touchend'));
+    expect(ctx.resume).toHaveBeenCalledTimes(4);
+    sfx.playSfx('turn');
+    expect(created.sources).toHaveLength(2); // a suspended context still gets its nodes scheduled
+
+    FakeContext.blockResume = false;
+    window.dispatchEvent(new Event('keydown'));
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(ctx.state).toBe('running');
+    const calls = ctx.resume.mock.calls.length;
+    // Running: the listeners are gone, so later gestures do nothing.
+    for (const type of ['pointerdown', 'pointerup', 'click', 'touchend', 'keydown']) {
+      window.dispatchEvent(new Event(type));
+    }
+    expect(ctx.resume).toHaveBeenCalledTimes(calls);
+    expect(created.contexts).toHaveLength(1);
+  });
+
+  it('can be installed again after it was uninstalled', async () => {
+    vi.stubGlobal('AudioContext', FakeContext);
+    const sfx = await loadSfx();
+    const off = sfx.installAudioUnlock();
+    off();
+    uninstall.push(sfx.installAudioUnlock());
+    gesture();
     expect(created.contexts).toHaveLength(1);
   });
 

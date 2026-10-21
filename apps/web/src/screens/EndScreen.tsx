@@ -1,5 +1,8 @@
+import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
 import { ranking, sectorCount, victoryPoints } from '@starhold/engine';
+import type { PlayerView } from '@starhold/engine';
+import type { RoomInfo } from '@starhold/protocol';
 import { useT } from '../i18n/useT.ts';
 import { playerName } from '../game/format.ts';
 import { useGameStore } from '../store/gameStore.ts';
@@ -7,30 +10,36 @@ import { Button } from '../ui/Button.tsx';
 import { MuteToggle } from '../ui/MuteToggle.tsx';
 import { PlayerMarker } from '../ui/PlayerMarker.tsx';
 
-/** The finished game: who won and why, the final ranking, Rematch (host) and Home. */
-export function EndScreen() {
+function EndBoard({ view, room }: { view: PlayerView; room: RoomInfo }) {
   const t = useT();
   const [, navigate] = useLocation();
-  const room = useGameStore((s) => s.room);
-  const game = useGameStore((s) => s.game);
   const rematch = useGameStore((s) => s.rematch);
   const leaveRoom = useGameStore((s) => s.leaveRoom);
-
-  if (room === null || game === null) return <p className="screen">{t('game.loading')}</p>;
-  const view = game.view;
   const me = view.me ?? room.you;
   const isHost = room.hostId === room.you;
   const order = ranking(view);
 
+  // The recorded winner, else whoever the ranking puts first, else a neutral heading.
+  const winnerId = view.winner ?? order[0] ?? null;
+  const headline =
+    winnerId === null
+      ? t('game.phase.finished')
+      : t('end.winner', { player: playerName(view, winnerId) });
+  const reason =
+    view.endReason === 'roundLimit' ? t('end.reasonRoundLimit') : t('end.reasonTarget');
+
+  // Filled after mount so a screen reader reads it as news, not as initial page content.
+  const [announcement, setAnnouncement] = useState('');
+  useEffect(() => setAnnouncement(`${headline} ${reason}`), [headline, reason]);
+
   return (
     <main className="screen end-screen">
       <header>
-        <h1>
-          {t('end.winner', { player: view.winner === null ? '' : playerName(view, view.winner) })}
-        </h1>
-        <p className="tagline">
-          {view.endReason === 'roundLimit' ? t('end.reasonRoundLimit') : t('end.reasonTarget')}
-        </p>
+        <h1>{headline}</h1>
+        <p className="tagline">{reason}</p>
+        <div className="sr-only" aria-live="polite" aria-atomic="true">
+          {announcement}
+        </div>
       </header>
 
       <section className="panel">
@@ -87,4 +96,13 @@ export function EndScreen() {
       </div>
     </main>
   );
+}
+
+/** The finished game: who won and why, the final ranking, Rematch (host) and Home. */
+export function EndScreen() {
+  const t = useT();
+  const room = useGameStore((s) => s.room);
+  const game = useGameStore((s) => s.game);
+  if (room === null || game === null) return <p className="screen">{t('game.loading')}</p>;
+  return <EndBoard view={game.view} room={room} />;
 }

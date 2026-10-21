@@ -230,7 +230,7 @@ export const en = {
     'Starhold is a game for 2 to 4 commanders. Claim sectors of a hexagonal galaxy, gather resources, trade with rivals and fight for control. The first commander to reach the victory target wins.',
   'pages.rules.goal.title': 'Goal',
   'pages.rules.goal.body':
-    'Earn victory points. A colony is worth 1 point, a starbase 2, and two special awards add 2 each. The first commander to reach the target wins; the target is 6, 8 or 10 points and is chosen in the room settings. If nobody gets there within 60 rounds, the player with the most points wins, with ties settled by sector count and then by fleets.',
+    'Earn victory points. A colony is worth 1 point, a starbase 2, and two special awards add 2 each. The first commander to reach the target wins; the target is 6, 8 or 10 points and is chosen in the room settings. If nobody gets there within 60 rounds, the player with the most points wins, with ties settled by sector count, then by fleets, and finally by turn order (the player who moves earlier wins).',
   'pages.rules.goal.timing':
     'You win as soon as you hold the target after any action on your own turn. If you reach it during someone else’s turn, you win at the start of your next turn, provided you still have it.',
   'pages.rules.map.title': 'The galaxy',
