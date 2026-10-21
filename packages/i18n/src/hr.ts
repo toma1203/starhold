@@ -60,6 +60,7 @@ export const hr: Record<MessageKey, string> = {
   'lobby.host': 'Domaćin',
   'lobby.you': 'Ti',
   'lobby.needPlayers': 'Potrebna su najmanje 2 igrača.',
+  'lobby.leave': 'Napusti sobu',
 
   // Game screen
   'game.phase.homeBonus': 'Bonus matičnog sustava',

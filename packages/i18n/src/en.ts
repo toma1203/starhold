@@ -64,6 +64,7 @@ export const en = {
   'lobby.host': 'Host',
   'lobby.you': 'You',
   'lobby.needPlayers': 'At least 2 players are needed.',
+  'lobby.leave': 'Leave room',
 
   // Game screen
   'game.phase.homeBonus': 'Home bonus',
