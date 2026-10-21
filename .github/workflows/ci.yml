@@ -50,3 +50,25 @@ jobs:
             playwright-report/
             test-results/
           retention-days: 7
+
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t starhold .
+      - name: Run the container and check it serves
+        run: |
+          docker run -d --name starhold -p 3000:3000 starhold
+          ok=0
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:3000/healthz; then ok=1; break; fi
+            sleep 1
+          done
+          if [ "$ok" != 1 ]; then docker logs starhold; exit 1; fi
+          echo
+          curl -fsS http://localhost:3000/ | grep -qi '<!doctype html>'
+          docker exec starhold node -e "process.exit(process.getuid()===1000?0:1)"
+      - name: Container logs
+        if: always()
+        run: docker logs starhold

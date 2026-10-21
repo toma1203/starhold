@@ -3,6 +3,8 @@ import { defineConfig, devices } from '@playwright/test';
 
 const root = fileURLToPath(new URL('../../../../', import.meta.url));
 const PORT = 4173;
+// `npm run e2e -- --grep @screenshots` regenerates the README screenshots (calmer game pace).
+const screenshots = process.argv.some((arg) => arg.includes('@screenshots'));
 
 export default defineConfig({
   testDir: '.',
@@ -12,6 +14,8 @@ export default defineConfig({
   timeout: 240_000,
   expect: { timeout: 10_000 },
   fullyParallel: true,
+  // The README screenshots are a documentation tool, not part of the default e2e run.
+  ...(screenshots ? { grep: /@screenshots/ } : { grepInvert: /@screenshots/ }),
   forbidOnly: !!process.env['CI'],
   retries: process.env['CI'] ? 1 : 0,
   reporter: process.env['CI']
@@ -34,8 +38,8 @@ export default defineConfig({
     timeout: 30_000,
     env: {
       PORT: String(PORT),
-      STARHOLD_BOT_DELAY_MS: '0',
-      STARHOLD_TURN_SECONDS: '3',
+      STARHOLD_BOT_DELAY_MS: screenshots ? '150' : '0',
+      STARHOLD_TURN_SECONDS: screenshots ? '120' : '3',
       STARHOLD_DISCARD_SECONDS: '1',
       STARHOLD_STATIC_DIR: `${root}apps/web/dist`,
     },

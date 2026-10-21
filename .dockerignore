@@ -1,0 +1,14 @@
+node_modules
+**/node_modules
+dist
+**/dist
+.git
+.github
+.superpowers
+.claude
+test-results
+playwright-report
+coverage
+docs/screenshots
+*.log
+.env*
