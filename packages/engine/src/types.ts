@@ -128,6 +128,26 @@ export type ErrorCode =
   | 'err.noOffer'
   | 'err.invalidTrade'
   | 'err.gameOver';
+/**
+ * Runtime list of every ErrorCode. The Record type makes the compiler reject a missing or
+ * unknown code, so this list can never drift from the union.
+ */
+const ERROR_CODE_SET: Record<ErrorCode, true> = {
+  'err.notYourTurn': true,
+  'err.wrongPhase': true,
+  'err.insufficientResources': true,
+  'err.invalidSector': true,
+  'err.notOwned': true,
+  'err.notAdjacent': true,
+  'err.notConnected': true,
+  'err.invalidCount': true,
+  'err.invalidDice': true,
+  'err.homeProtected': true,
+  'err.noOffer': true,
+  'err.invalidTrade': true,
+  'err.gameOver': true,
+};
+export const ERROR_CODES: readonly ErrorCode[] = Object.keys(ERROR_CODE_SET) as ErrorCode[];
 export type ActionResult =
   { ok: true; state: GameState; events: GameEvent[] } | { ok: false; error: ErrorCode };
 export type Handler = (s: GameState, p: PlayerId, a: Action) => ActionResult;
