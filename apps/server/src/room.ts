@@ -59,6 +59,8 @@ export class Room {
   // --- game state (driven by the game loop) -------------------------------
   game: GameState | null = null;
   private session: GameSession | null = null;
+  /** Last version used by a finished game session; versions never go back (R14). */
+  private versionBase = 0;
 
   constructor(
     readonly code: string,
@@ -100,8 +102,10 @@ export class Room {
     if (!seat) return null;
     seat.connected = true;
     seat.afk = false;
-    this.session?.schedule();
     this.touch();
+    // Re-arms timers and pushes the current game:state to the rejoining player (and, if the
+    // deadlines changed, to everyone). Callers need not send game state themselves.
+    this.session?.resync(seat.playerId);
     return seat.playerId;
   }
 
@@ -202,7 +206,13 @@ export class Room {
     for (const s of this.seats) if (!s.isBot && !s.connected) s.afk = true;
     this.game = createGame({ seats, targetVp: this.settings.targetVp }, randomInt(0, 2 ** 31));
     this.phase = 'IN_GAME';
-    this.session = new GameSession(this, this.config, this.hooks, () => this.touch());
+    this.session = new GameSession(
+      this,
+      this.config,
+      this.hooks,
+      () => this.touch(),
+      this.versionBase + 1,
+    );
     this.touch();
     this.session.begin();
     return { ok: true };
@@ -210,9 +220,12 @@ export class Room {
 
   // --- game: delegated to the session --------------------------------------
 
-  /** 1 at game start, +1 per successful action; 0 while there is no game. */
+  /**
+   * 1 at the first game's start, +1 per successful action or pushed deadline change. It keeps
+   * counting across rematches (clients ignore versions <= the one they hold); 0 before any game.
+   */
   get version(): number {
-    return this.session?.version ?? 0;
+    return this.session?.version ?? this.versionBase;
   }
 
   handleAction(playerId: string, action: Action): RoomOk | { ok: false; error: ErrorCode } {
@@ -252,6 +265,7 @@ export class Room {
 
   /** Stops every timer; the room must not be used for a game afterwards. */
   dispose(): void {
+    if (this.session) this.versionBase = this.session.version;
     this.session?.dispose();
     this.session = null;
   }

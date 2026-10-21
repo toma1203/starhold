@@ -1,4 +1,3 @@
-import { decide } from '@starhold/bots';
 import {
   applyAction,
   filterEventsFor,
@@ -18,7 +17,9 @@ import type {
   SeatInfo,
   ServerToClientEvents,
 } from '@starhold/protocol';
+import { botCandidates, errorText } from './botMoves.ts';
 import type { Config } from './config.ts';
+import { DeadlineTimer } from './turnClock.ts';
 
 /** The part of a Room the game loop reads and writes. */
 export interface SessionHost {
@@ -49,19 +50,18 @@ const AFK_AFTER_TIMEOUTS = 2;
  * place that re-arms them after every state change.
  */
 export class GameSession {
-  version = 1;
+  /** Bumped by every successful action and by every pushed deadline change. */
+  version: number;
 
   private finished = false;
   /** `round:current` of the turn the timers belong to. */
   private turnKey: string | null = null;
   /** The turn timer expired: bots play out the rest of this turn for the human. */
   private takeover = false;
-  private turnDeadline: number | null = null;
+  private readonly turn: DeadlineTimer;
   /** Turn time left while DISCARD has the turn timer paused. */
   private pausedRemaining: number | null = null;
-  private discardDeadline: number | null = null;
-  private turnTimer: Timer | undefined;
-  private discardTimer: Timer | undefined;
+  private readonly discard: DeadlineTimer;
   private botTimer: Timer | undefined;
   private readonly timeouts = new Map<PlayerId, number>();
 
@@ -71,16 +71,39 @@ export class GameSession {
     private readonly hooks: SessionHooks,
     /** Room-level change (AFK flag, finish): bumps activity and broadcasts room state. */
     private readonly onRoomChange: () => void,
-  ) {}
+    /** The first version of this game; the room keeps versions increasing across rematches. */
+    startVersion: number,
+  ) {
+    this.version = startVersion;
+    this.turn = new DeadlineTimer(() => hooks.now());
+    this.discard = new DeadlineTimer(() => hooks.now());
+  }
 
   /** Sends the opening state to every connected human and starts the timers. */
   begin(): void {
-    this.schedule();
+    this.schedule(false);
     this.emitStates([]);
+  }
+
+  /** After a (re)connect: re-arm the timers and make sure `playerId` holds the current state. */
+  resync(playerId: PlayerId): void {
+    if (!this.schedule() && this.host.game) {
+      this.hooks.emitTo(playerId, 'game:state', this.stateFor(playerId));
+    }
   }
 
   /** A human's action. On success: version++, views go out, their timeout streak and AFK clear. */
   handleAction(playerId: PlayerId, action: Action): ActionOutcome {
+    const state = this.host.game;
+    // After a turn timeout the bot owns the rest of the turn: the human cannot interleave.
+    if (
+      state &&
+      this.takeover &&
+      state.phase !== 'DISCARD' &&
+      state.players[state.current]?.id === playerId
+    ) {
+      return { ok: false, error: 'err.notYourTurn' };
+    }
     const applied = this.apply(playerId, action);
     if (!applied.ok) return applied;
     this.timeouts.delete(playerId);
@@ -97,29 +120,40 @@ export class GameSession {
     return {
       version: this.version,
       view: viewFor(state, playerId),
-      turnDeadline: this.turnDeadline,
-      discardDeadline: this.discardDeadline,
+      turnDeadline: this.turn.deadline,
+      discardDeadline: this.discard.deadline,
     };
   }
 
   dispose(): void {
-    this.clearTimer('turnTimer');
-    this.clearTimer('discardTimer');
-    this.clearTimer('botTimer');
+    this.turn.clear();
+    this.discard.clear();
+    clearTimeout(this.botTimer);
+    this.botTimer = undefined;
   }
 
-  /** Re-arms every timer for the current state. Safe to call at any time. */
-  schedule(): void {
-    this.clearTimer('botTimer');
+  /**
+   * Re-arms every timer for the current state. Safe to call at any time. If a deadline
+   * changed (and `push` is true, i.e. no state is about to be published anyway), every
+   * connected human gets a fresh `game:state` with a bumped version. Returns whether it did.
+   */
+  schedule(push = true): boolean {
+    clearTimeout(this.botTimer);
+    this.botTimer = undefined;
     const state = this.host.game;
-    if (!state || this.finished) return;
+    if (!state || this.finished) return false;
     if (state.phase === 'FINISHED') {
       this.finish();
-      return;
+      return false;
     }
+    const before = `${this.turn.deadline}|${this.discard.deadline}`;
     this.updateTurnTimer(state);
     this.updateDiscardTimer(state);
     this.armBot(state);
+    if (!push || before === `${this.turn.deadline}|${this.discard.deadline}`) return false;
+    this.version += 1;
+    this.emitStates([]);
+    return true;
   }
 
   // --- who controls a seat -------------------------------------------------
@@ -161,7 +195,7 @@ export class GameSession {
 
   /** After a successful apply: re-arm the timers first so the payloads carry fresh deadlines. */
   private publish(events: GameEvent[]): void {
-    this.schedule();
+    this.schedule(false);
     this.emitStates(events);
   }
 
@@ -179,18 +213,11 @@ export class GameSession {
   private finish(): void {
     this.finished = true;
     this.dispose();
-    this.turnDeadline = null;
-    this.discardDeadline = null;
     this.host.phase = 'FINISHED';
     this.onRoomChange();
   }
 
   // --- timers -----------------------------------------------------------------
-
-  private clearTimer(name: 'turnTimer' | 'discardTimer' | 'botTimer'): void {
-    clearTimeout(this[name]);
-    this[name] = undefined;
-  }
 
   private turnMs(): number {
     const override = this.config.turnSecondsOverride;
@@ -220,13 +247,9 @@ export class GameSession {
   }
 
   private setTurnDeadline(deadline: number | null): void {
-    this.clearTimer('turnTimer');
-    this.turnDeadline = deadline;
-    if (deadline === null) return;
-    const delay = Math.max(0, deadline - this.hooks.now());
-    this.turnTimer = setTimeout(
+    this.turn.set(
+      deadline,
       this.guarded('turn timer', () => this.onTurnExpired()),
-      delay,
     );
   }
 
@@ -251,22 +274,21 @@ export class GameSession {
     }
     const now = this.hooks.now();
     if (state.phase === 'DISCARD') {
-      if (this.turnDeadline !== null) {
-        this.pausedRemaining = Math.max(0, this.turnDeadline - now);
+      if (this.turn.deadline !== null) {
+        this.pausedRemaining = Math.max(0, this.turn.deadline - now);
         this.setTurnDeadline(null);
       }
     } else if (this.pausedRemaining !== null) {
       const remaining = this.pausedRemaining;
       this.pausedRemaining = null;
       this.setTurnDeadline(now + remaining);
-    } else if (this.turnDeadline === null) {
+    } else if (this.turn.deadline === null) {
       this.setTurnDeadline(now + this.turnMs());
     }
   }
 
   private onTurnExpired(): void {
-    this.turnTimer = undefined;
-    this.turnDeadline = null;
+    this.turn.fired();
     const state = this.host.game;
     const current = state?.players[state.current];
     if (!current || this.finished) return;
@@ -288,27 +310,24 @@ export class GameSession {
   }
 
   private setDiscardDeadline(deadline: number | null): void {
-    this.clearTimer('discardTimer');
-    this.discardDeadline = deadline;
-    if (deadline === null) return;
-    const delay = Math.max(0, deadline - this.hooks.now());
-    this.discardTimer = setTimeout(
+    this.discard.set(
+      deadline,
       this.guarded('discard timer', () => this.onDiscardExpired()),
-      delay,
     );
   }
 
   private updateDiscardTimer(state: GameState): void {
     if (this.pendingHumanDiscarders(state).length === 0) {
       this.setDiscardDeadline(null);
-    } else if (this.discardDeadline === null) {
+    } else if (this.discard.deadline === null) {
       this.setDiscardDeadline(this.hooks.now() + this.config.discardSeconds * 1000);
     }
   }
 
   /** Connected humans who did not choose in time get a random discard. */
   private onDiscardExpired(): void {
-    this.discardTimer = undefined;
+    this.discard.fired();
+    this.setDiscardDeadline(null); // payloads published below never carry the expired deadline
     for (const id of this.pendingHumanDiscarders(this.requireState())) {
       const state = this.requireState();
       if ((state.pendingDiscards[id] ?? 0) <= 0) continue;
@@ -316,7 +335,6 @@ export class GameSession {
       if (applied.ok) this.publish(applied.events);
       else console.warn(`[room ${this.host.code}] random discard rejected: ${applied.error}`);
     }
-    this.discardDeadline = null;
     this.schedule();
   }
 
@@ -361,7 +379,8 @@ export class GameSession {
   }
 
   private tryBotMoves(state: GameState, id: PlayerId): boolean {
-    for (const action of this.botCandidates(state, id)) {
+    const warn = (message: string) => console.warn(`[room ${this.host.code}] ${message}`);
+    for (const action of botCandidates(state, id, this.levelOf(id), warn)) {
       const applied = this.apply(id, action);
       if (applied.ok) {
         this.publish(applied.events);
@@ -371,30 +390,4 @@ export class GameSession {
     }
     return false;
   }
-
-  /** The AI's choice first, then safe fallbacks (lazily, so a good choice costs nothing extra). */
-  private *botCandidates(state: GameState, id: PlayerId): Generator<Action> {
-    try {
-      const chosen = decide(viewFor(state, id), id, this.levelOf(id), Math.random);
-      if (chosen) yield chosen;
-    } catch (error) {
-      console.warn(`[room ${this.host.code}] bot decision failed: ${errorText(error)}`);
-    }
-    if (state.phase === 'DISCARD') {
-      yield randomDiscard(state, id);
-      return;
-    }
-    const isCurrent = state.players[state.current]?.id === id;
-    if (state.offer && !isCurrent) {
-      yield { type: 'respondTrade', accept: false };
-      return;
-    }
-    const legal = legalActions(state, id);
-    if (legal.some((a) => a.type === 'endTurn')) yield { type: 'endTurn' };
-    yield* legal;
-  }
-}
-
-function errorText(error: unknown): string {
-  return (error instanceof Error ? error.message : String(error)).replace(/\s+/g, ' ');
 }

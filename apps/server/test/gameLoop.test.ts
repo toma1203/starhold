@@ -264,8 +264,9 @@ describe('Room game loop: bots', () => {
     expect(line).not.toContain('Human0');
 
     makeCurrent(room, bot, 'HOME_BONUS');
+    const mid = room.version;
     vi.advanceTimersByTime(10);
-    expect(room.version).toBe(before + 2);
+    expect(room.version).toBe(mid + 1);
     expect(game(room).phase).toBe('ROLL');
   });
 
@@ -395,6 +396,106 @@ describe('Room game loop: turn timer and AFK', () => {
   });
 });
 
+describe('Room game loop: after a turn timeout', () => {
+  const config = { turnSecondsOverride: 5 };
+
+  it('the human cannot act on the turn the bot took over, and the streak is kept', () => {
+    const { room, humans } = rig({ humans: 1, bots: ['normal'], config });
+    const human = humans[0] as string;
+    makeCurrent(room, human, 'MAIN');
+    vi.advanceTimersByTime(5000);
+    const version = room.version;
+    expect(room.handleAction(human, { type: 'endTurn' })).toEqual({
+      ok: false,
+      error: 'err.notYourTurn',
+    });
+    expect(room.version).toBe(version);
+    expect(vi.getTimerCount()).toBeLessThanOrEqual(3);
+    vi.advanceTimersByTime(10); // the bot acts one bot delay later, unhindered
+    expect(room.version).toBe(version + 1);
+    advanceUntil(() => currentId(room) !== human);
+
+    // the human controls their next turn normally ...
+    advanceUntil(() => currentId(room) === human);
+    expect(room.handleAction(human, { type: 'chooseHomeBonus', resource: 'metal' }).ok).toBe(true);
+    // a successful action on that turn resets the streak, so the next expiry is only the first
+    vi.advanceTimersByTime(5000);
+    expect(seatOf(room, human).afk).toBe(false);
+  });
+
+  it('a rejected takeover-turn action does not reset the timeout streak', () => {
+    const { room, humans } = rig({ humans: 1, bots: ['normal'], config });
+    const human = humans[0] as string;
+    makeCurrent(room, human, 'MAIN');
+    vi.advanceTimersByTime(5000);
+    room.handleAction(human, { type: 'endTurn' }); // rejected
+    advanceUntil(() => currentId(room) !== human);
+    advanceUntil(() => currentId(room) === human);
+    const deadline = room.stateFor(human).turnDeadline as number;
+    vi.advanceTimersByTime(deadline - Date.now());
+    expect(seatOf(room, human).afk).toBe(true); // second consecutive expiry
+  });
+
+  it('discards stay allowed for the human during the takeover', () => {
+    const { room, humans } = rig({ humans: 1, bots: ['normal'], config });
+    const human = humans[0] as string;
+    makeCurrent(room, human, 'MAIN');
+    vi.advanceTimersByTime(5000);
+    startDiscard(room, { [human]: 5 });
+    const pick: Action = {
+      type: 'discard',
+      resources: { metal: 4, energy: 1, crystal: 0, biomass: 0 },
+    };
+    expect(room.handleAction(human, pick)).toEqual({ ok: true });
+  });
+});
+
+describe('Room game loop: deadline changes outside an action are pushed', () => {
+  const config = { turnSecondsOverride: 5 };
+  const lastState = (hooks: TestHooks, id: PlayerId) =>
+    payloads(hooks, id, 'game:state').at(-1) as GameStatePayload;
+
+  it('other players receive the new deadline after a human turn expiry', () => {
+    const { room, hooks, humans } = rig({ humans: 2, config });
+    const [a, b] = humans as [string, string];
+    makeCurrent(room, a, 'MAIN');
+    const t0 = Date.now();
+    expect(lastState(hooks, b).turnDeadline).toBe(t0 + 5000);
+    const version = lastState(hooks, b).version;
+    vi.advanceTimersByTime(5000);
+    const pushed = lastState(hooks, b);
+    expect(pushed.turnDeadline).toBeNull();
+    expect(pushed.version).toBeGreaterThan(version);
+    expect(lastState(hooks, a).version).toBe(pushed.version);
+  });
+
+  it('a disconnect and a reconnect both reach the other players', () => {
+    const { room, hooks, humans, tokens } = rig({ humans: 2, config });
+    const [a, b] = humans as [string, string];
+    makeCurrent(room, a, 'MAIN');
+    room.markDisconnected(a);
+    expect(lastState(hooks, b).turnDeadline).toBeNull();
+    vi.advanceTimersByTime(5); // less than a bot delay: the bot has not moved yet
+    expect(room.rejoin(tokens[a] as string)).toBe(a);
+    expect(lastState(hooks, b).turnDeadline).toBe(Date.now() + 5000);
+    expect(lastState(hooks, a).turnDeadline).toBe(Date.now() + 5000);
+    expect(lastState(hooks, a).version).toBe(room.version);
+  });
+
+  it('a rejoining player always receives the current state, even if no deadline changed', () => {
+    const { room, hooks, humans, tokens } = rig({ humans: 2, config });
+    const [a, b] = humans as [string, string];
+    makeCurrent(room, a, 'MAIN');
+    room.markDisconnected(b);
+    const before = payloads(hooks, b, 'game:state').length;
+    expect(room.rejoin(tokens[b] as string)).toBe(b);
+    const states = payloads(hooks, b, 'game:state') as GameStatePayload[];
+    expect(states).toHaveLength(before + 1);
+    expect(states.at(-1)?.version).toBe(room.version);
+    expect(states.at(-1)?.view.me).toBe(b);
+  });
+});
+
 describe('Room game loop: discard phase', () => {
   const config = { turnSecondsOverride: 5 };
 
@@ -412,7 +513,7 @@ describe('Room game loop: discard phase', () => {
   });
 
   it('a connected human is auto-discarded exactly when discardSeconds expire', () => {
-    const { room, humans } = rig({ humans: 2 });
+    const { room, hooks, humans } = rig({ humans: 2 });
     const [a, b] = humans as [string, string];
     makeCurrent(room, a, 'MAIN');
     startDiscard(room, { [b]: 5 });
@@ -422,6 +523,8 @@ describe('Room game loop: discard phase', () => {
     vi.advanceTimersByTime(1);
     expect(game(room).phase).toBe('PIRATE');
     expect(room.stateFor(a).discardDeadline).toBeNull();
+    const last = payloads(hooks, a, 'game:state').at(-1) as GameStatePayload;
+    expect(last.discardDeadline).toBeNull(); // never the expired deadline
   });
 
   it('the human choosing before the timer is not overridden', () => {
@@ -565,6 +668,7 @@ describe('Room rematch', () => {
   it('rematch returns to LOBBY with same connected seats', () => {
     const { room, humans, bots } = finished();
     const [a, b, c] = humans as [string, string, string];
+    const lastVersion = room.version;
     room.markDisconnected(c);
     expect(room.rematch(a)).toEqual({ ok: true });
     expect(room.phase).toBe('LOBBY');
@@ -573,7 +677,17 @@ describe('Room rematch', () => {
     expect(room.seats.every((s) => s.connected && !s.afk)).toBe(true);
     expect(room.hostId).toBe(a);
     expect(room.start(a)).toEqual({ ok: true }); // can play again
-    expect(room.version).toBe(1);
+    expect(room.version).toBeGreaterThan(lastVersion);
+  });
+
+  it('versions keep increasing across a rematch (R14)', () => {
+    const { room, hooks, humans } = finished();
+    const a = humans[0] as string;
+    const lastOf = () => (payloads(hooks, a, 'game:state').at(-1) as GameStatePayload).version;
+    const lastVersion = lastOf();
+    expect(room.rematch(a)).toEqual({ ok: true });
+    expect(room.start(a)).toEqual({ ok: true });
+    expect(lastOf()).toBeGreaterThan(lastVersion);
   });
 
   it('only the host can rematch, and only a finished game', () => {
