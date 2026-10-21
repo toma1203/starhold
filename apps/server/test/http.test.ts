@@ -54,6 +54,9 @@ describe('http app', () => {
       "img-src 'self' data:",
       "style-src 'self' 'unsafe-inline'",
       "font-src 'self'",
+      "object-src 'none'",
+      "base-uri 'self'",
+      "frame-ancestors 'self'",
     ]) {
       expect(csp, directive).toContain(directive);
     }

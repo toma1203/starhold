@@ -113,6 +113,7 @@ export function attachSocket(io: TransportServer, manager: RoomManager, config: 
   io.on('connection', (socket) => {
     const bucket = new TokenBucket(config.msgsPerSecond);
     let lastRateNotice = Number.NEGATIVE_INFINITY;
+    let lastCreate = Number.NEGATIVE_INFINITY;
     const emitError = (code: ServerError['code']): void => {
       socket.emit('error', { code });
     };
@@ -168,8 +169,8 @@ export function attachSocket(io: TransportServer, manager: RoomManager, config: 
       void socket.leave(binding.code);
       const room = manager.get(binding.code);
       if (!room) return;
-      if (leave) room.leave(binding.playerId);
-      else room.markDisconnected(binding.playerId);
+      if (!leave) room.markDisconnected(binding.playerId);
+      else if (room.leave(binding.playerId)) manager.delete(room.code); // empty lobby: no 30-min limbo
     };
 
     const current = (): { room: Room; playerId: string } | null => {
@@ -240,6 +241,10 @@ export function attachSocket(io: TransportServer, manager: RoomManager, config: 
     listen('room:create', (payload, reply) => {
       const parsed = CreateRoomPayloadSchema.safeParse(payload);
       if (!parsed.success) return badRequest(reply);
+      // A client cannot churn through the room budget by creating rooms in a loop.
+      const now = performance.now();
+      if (now - lastCreate < config.createCooldownMs) return refuse(reply, 'err.rateLimited');
+      lastCreate = now;
       const room = manager.create();
       if ('error' in room) return refuse(reply, room.error);
       const joined = room.addHuman(parsed.data.name);

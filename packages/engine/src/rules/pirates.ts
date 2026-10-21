@@ -109,7 +109,7 @@ export const pirateHandlers: HandlerTable = {
     if (action.type !== 'movePirate') return { ok: false, error: 'err.wrongPhase' };
     const denied = guardTurn(state, playerId, 'PIRATE');
     if (denied) return { ok: false, error: denied };
-    const target = state.sectors[action.to];
+    const target = Object.hasOwn(state.sectors, action.to) ? state.sectors[action.to] : undefined;
     if (!target || target.kind === 'home' || state.pirate === action.to) {
       return { ok: false, error: 'err.invalidSector' };
     }

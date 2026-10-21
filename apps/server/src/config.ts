@@ -9,6 +9,8 @@ export interface Config {
   finishedRoomTtlMs: number;
   maxRooms: number;
   msgsPerSecond: number;
+  /** Minimum gap between two `room:create` calls from one socket, in ms. */
+  createCooldownMs: number;
 }
 
 /** Parses a non-negative integer env value; anything else yields `fallback`. */
@@ -31,5 +33,6 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     finishedRoomTtlMs: 900_000,
     maxRooms: 500,
     msgsPerSecond: 20,
+    createCooldownMs: 2000,
   };
 }

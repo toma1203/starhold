@@ -7,7 +7,10 @@ import { z } from 'zod';
  */
 
 const ResourceSchema = z.enum(['metal', 'energy', 'crystal', 'biomass']);
-const IdSchema = z.string().max(16);
+/** Axial hex id "q,r" as made by the engine's `hexId`; also keeps `__proto__` and friends out. */
+const SectorIdSchema = z.string().regex(/^-?\d{1,2},-?\d{1,2}$/);
+/** Seat id as the server generates it (`generatePlayerId`): 8 base36 characters. */
+const PlayerIdSchema = z.string().regex(/^[0-9a-z]{8}$/);
 const CountSchema = z.number().int().min(1).max(999);
 const BagValueSchema = z.number().int().min(0).max(99);
 
@@ -24,29 +27,39 @@ export const ActionSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('chooseHomeBonus'), resource: ResourceSchema }).strict(),
   z.object({ type: z.literal('roll') }).strict(),
   z.object({ type: z.literal('discard'), resources: BagSchema }).strict(),
-  z.object({ type: z.literal('movePirate'), to: IdSchema }).strict(),
+  z.object({ type: z.literal('movePirate'), to: SectorIdSchema }).strict(),
   z.object({ type: z.literal('bankTrade'), give: ResourceSchema, get: ResourceSchema }).strict(),
   z.object({ type: z.literal('offerTrade'), give: BagSchema, want: BagSchema }).strict(),
   z.object({ type: z.literal('respondTrade'), accept: z.boolean() }).strict(),
-  z.object({ type: z.literal('confirmTrade'), with: IdSchema }).strict(),
+  z.object({ type: z.literal('confirmTrade'), with: PlayerIdSchema }).strict(),
   z.object({ type: z.literal('cancelTrade') }).strict(),
-  z.object({ type: z.literal('buildFleet'), at: IdSchema }).strict(),
-  z.object({ type: z.literal('buildColony'), at: IdSchema }).strict(),
-  z.object({ type: z.literal('buildStarbase'), at: IdSchema }).strict(),
+  z.object({ type: z.literal('buildFleet'), at: SectorIdSchema }).strict(),
+  z.object({ type: z.literal('buildColony'), at: SectorIdSchema }).strict(),
+  z.object({ type: z.literal('buildStarbase'), at: SectorIdSchema }).strict(),
   z
-    .object({ type: z.literal('expand'), from: IdSchema, to: IdSchema, count: CountSchema })
+    .object({
+      type: z.literal('expand'),
+      from: SectorIdSchema,
+      to: SectorIdSchema,
+      count: CountSchema,
+    })
     .strict(),
   z
     .object({
       type: z.literal('attack'),
-      from: IdSchema,
-      to: IdSchema,
+      from: SectorIdSchema,
+      to: SectorIdSchema,
       dice: z.union([z.literal(1), z.literal(2), z.literal(3)]),
       moveIfConquered: CountSchema.optional(),
     })
     .strict(),
   z
-    .object({ type: z.literal('fortify'), from: IdSchema, to: IdSchema, count: CountSchema })
+    .object({
+      type: z.literal('fortify'),
+      from: SectorIdSchema,
+      to: SectorIdSchema,
+      count: CountSchema,
+    })
     .strict(),
   z.object({ type: z.literal('endTurn') }).strict(),
 ]);
@@ -83,4 +96,4 @@ export const JoinRoomPayloadSchema = z
   .strict();
 export const RejoinPayloadSchema = z.object({ code: RoomCodeSchema, token: TokenSchema }).strict();
 export const AddBotPayloadSchema = z.object({ level: z.enum(['easy', 'normal']) }).strict();
-export const RemoveBotPayloadSchema = z.object({ playerId: IdSchema }).strict();
+export const RemoveBotPayloadSchema = z.object({ playerId: PlayerIdSchema }).strict();

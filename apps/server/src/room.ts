@@ -38,6 +38,8 @@ export type RoomOk = { ok: true };
 export const MAX_SEATS = 4;
 const MIN_SEATS_TO_START = 2;
 const BOT_NAMES = ['Bot Vega', 'Bot Orion', 'Bot Lyra'] as const;
+/** Reserved for bots: a human nickname may not start with it (case-insensitive). */
+const RESERVED_NAME_PREFIX = /^bot\s/i;
 
 /**
  * One game room. Lobby state and methods come first; the game half (turn loop, timers,
@@ -78,7 +80,7 @@ export class Room {
     if (this.phase !== 'LOBBY') return { error: 'err.gameStarted' };
     if (this.seats.length >= MAX_SEATS) return { error: 'err.roomFull' };
     const nick = NicknameSchema.safeParse(name);
-    if (!nick.success) return { error: 'err.badRequest' };
+    if (!nick.success || RESERVED_NAME_PREFIX.test(nick.data)) return { error: 'err.badRequest' };
     const playerId = this.freshPlayerId();
     const token = generateToken();
     this.seats.push({
@@ -130,11 +132,14 @@ export class Room {
     this.touch();
   }
 
-  /** In the lobby the seat is freed; in a game it stays, disconnected and AFK. */
-  leave(playerId: string): void {
+  /**
+   * In the lobby the seat is freed; in a game it stays, disconnected and AFK. Returns true when
+   * a lobby is left with no human at all, so the caller can delete the room at once.
+   */
+  leave(playerId: string): boolean {
     const index = this.seats.findIndex((s) => s.playerId === playerId);
     const seat = this.seats[index];
-    if (!seat || seat.isBot) return;
+    if (!seat || seat.isBot) return false;
     if (this.phase === 'LOBBY') {
       this.seats.splice(index, 1);
       this.dropToken(playerId);
@@ -143,12 +148,14 @@ export class Room {
       seat.afk = true;
     }
     if (this.hostId === playerId) this.transferHost(this.phase === 'LOBBY' ? index : index + 1);
-    if (this.phase === 'LOBBY' && !this.seats.some((s) => !s.isBot)) {
+    const abandoned = this.phase === 'LOBBY' && !this.seats.some((s) => !s.isBot);
+    if (abandoned) {
       this.seats.length = 0; // bots alone make no room
       this.hostId = '';
     }
     this.session?.schedule();
     this.touch();
+    return abandoned;
   }
 
   isEmptyOfHumans(): boolean {

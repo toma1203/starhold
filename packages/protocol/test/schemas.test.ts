@@ -21,7 +21,7 @@ const samples: Action[] = [
   { type: 'bankTrade', give: 'metal', get: 'biomass' },
   { type: 'offerTrade', give: bag, want: { metal: 0, energy: 1, crystal: 0, biomass: 0 } },
   { type: 'respondTrade', accept: true },
-  { type: 'confirmTrade', with: 'p2' },
+  { type: 'confirmTrade', with: 'abcd1234' },
   { type: 'cancelTrade' },
   { type: 'buildFleet', at: '0,0' },
   { type: 'buildColony', at: '0,1' },
@@ -67,11 +67,11 @@ describe('ActionSchema', () => {
   it('rejects count 0, 1000 and non-integers', () => {
     for (const count of [0, 1000, -1, 1.5]) {
       expect(
-        ActionSchema.safeParse({ type: 'expand', from: 'a', to: 'b', count }).success,
+        ActionSchema.safeParse({ type: 'expand', from: '0,0', to: '0,1', count }).success,
         `expand ${count}`,
       ).toBe(false);
       expect(
-        ActionSchema.safeParse({ type: 'fortify', from: 'a', to: 'b', count }).success,
+        ActionSchema.safeParse({ type: 'fortify', from: '0,0', to: '0,1', count }).success,
         `fortify ${count}`,
       ).toBe(false);
     }
@@ -80,7 +80,7 @@ describe('ActionSchema', () => {
   it('rejects dice outside 1..3', () => {
     for (const dice of [0, 4, 2.5, '2']) {
       expect(
-        ActionSchema.safeParse({ type: 'attack', from: 'a', to: 'b', dice }).success,
+        ActionSchema.safeParse({ type: 'attack', from: '0,0', to: '0,1', dice }).success,
         `dice ${String(dice)}`,
       ).toBe(false);
     }
@@ -89,18 +89,55 @@ describe('ActionSchema', () => {
   it('rejects moveIfConquered outside 1..999', () => {
     for (const moveIfConquered of [0, 1000, 1.5, -2]) {
       expect(
-        ActionSchema.safeParse({ type: 'attack', from: 'a', to: 'b', dice: 1, moveIfConquered })
+        ActionSchema.safeParse({ type: 'attack', from: '0,0', to: '0,1', dice: 1, moveIfConquered })
           .success,
       ).toBe(false);
     }
   });
 
-  it('rejects extra-long ids', () => {
-    const long = 'x'.repeat(17);
-    expect(ActionSchema.safeParse({ type: 'movePirate', to: long }).success).toBe(false);
-    expect(ActionSchema.safeParse({ type: 'buildFleet', at: long }).success).toBe(false);
-    expect(ActionSchema.safeParse({ type: 'confirmTrade', with: long }).success).toBe(false);
-    expect(ActionSchema.safeParse({ type: 'movePirate', to: 'x'.repeat(16) }).success).toBe(true);
+  it('accepts only axial "q,r" sector ids', () => {
+    const sectorFields = (id: string): unknown[] => [
+      { type: 'movePirate', to: id },
+      { type: 'buildFleet', at: id },
+      { type: 'buildColony', at: id },
+      { type: 'buildStarbase', at: id },
+      { type: 'expand', from: id, to: '0,0', count: 1 },
+      { type: 'attack', from: '0,0', to: id, dice: 1 },
+      { type: 'fortify', from: id, to: '0,0', count: 1 },
+    ];
+    for (const id of ['0,0', '-3,2', '3,-3', '12,-12']) {
+      for (const a of sectorFields(id)) {
+        expect(ActionSchema.safeParse(a).success, `${id} ${JSON.stringify(a)}`).toBe(true);
+      }
+    }
+    const bad = [
+      '__proto__',
+      'constructor',
+      'toString',
+      '',
+      '1',
+      '1,',
+      ',1',
+      'a,b',
+      '1,2,3',
+      '123,1',
+      '1,-',
+      '+1,2',
+      ' 1,2',
+      'x'.repeat(17),
+    ];
+    for (const id of bad) {
+      for (const a of sectorFields(id)) {
+        expect(ActionSchema.safeParse(a).success, `${id} ${JSON.stringify(a)}`).toBe(false);
+      }
+    }
+  });
+
+  it('accepts only 8-char base36 player ids for confirmTrade', () => {
+    expect(ActionSchema.safeParse({ type: 'confirmTrade', with: 'abcd1234' }).success).toBe(true);
+    for (const id of ['__proto__', 'constructor', 'abc', 'ABCD1234', 'abcd12345', 'abcd-123', '']) {
+      expect(ActionSchema.safeParse({ type: 'confirmTrade', with: id }).success, id).toBe(false);
+    }
   });
 
   it('rejects unknown keys on every variant and bag', () => {

@@ -31,5 +31,6 @@ export function makeHooks(start = 1_000_000): TestHooks {
 }
 
 export function testConfig(overrides: Partial<Config> = {}): Config {
-  return { ...loadConfig({}), ...overrides };
+  // The per-socket create cooldown is off unless a test asks for it.
+  return { ...loadConfig({}), createCooldownMs: 0, ...overrides };
 }

@@ -19,6 +19,7 @@ import type {
 } from '@starhold/protocol';
 import { botCandidates, errorText } from './botMoves.ts';
 import type { Config } from './config.ts';
+import { log } from './log.ts';
 import { DeadlineTimer } from './turnClock.ts';
 
 /** The part of a Room the game loop reads and writes. */
@@ -236,7 +237,7 @@ export class GameSession {
       try {
         fn();
       } catch (error) {
-        console.warn(`[room ${this.host.code}] ${label} failed: ${errorText(error)}`);
+        log.warn(`${label} failed`, { room: this.host.code, error: errorText(error) });
         try {
           this.schedule();
         } catch {
@@ -333,7 +334,7 @@ export class GameSession {
       if ((state.pendingDiscards[id] ?? 0) <= 0) continue;
       const applied = this.apply(id, randomDiscard(state, id));
       if (applied.ok) this.publish(applied.events);
-      else console.warn(`[room ${this.host.code}] random discard rejected: ${applied.error}`);
+      else log.warn('random discard rejected', { room: this.host.code, error: applied.error });
     }
     this.schedule();
   }
@@ -375,18 +376,26 @@ export class GameSession {
     for (const id of this.botActors(state)) {
       if (this.tryBotMoves(state, id)) return;
     }
-    console.warn(`[room ${this.host.code}] no bot move could be applied`);
+    log.warn('no bot move could be applied', { room: this.host.code });
+    this.schedule(); // try again rather than leave the loop silent
   }
 
   private tryBotMoves(state: GameState, id: PlayerId): boolean {
-    const warn = (message: string) => console.warn(`[room ${this.host.code}] ${message}`);
+    const room = this.host.code;
+    const warn = (message: string) => log.warn(message, { room });
     for (const action of botCandidates(state, id, this.levelOf(id), warn)) {
-      const applied = this.apply(id, action);
+      let applied: Applied;
+      try {
+        applied = this.apply(id, action);
+      } catch (error) {
+        log.warn('bot action threw', { room, action: action.type, error: errorText(error) });
+        continue;
+      }
       if (applied.ok) {
         this.publish(applied.events);
         return true;
       }
-      console.warn(`[room ${this.host.code}] bot action ${action.type} rejected: ${applied.error}`);
+      log.warn('bot action rejected', { room, action: action.type, error: applied.error });
     }
     return false;
   }

@@ -12,6 +12,7 @@ describe('loadConfig', () => {
       finishedRoomTtlMs: 900_000,
       maxRooms: 500,
       msgsPerSecond: 20,
+      createCooldownMs: 2000,
     });
   });
 

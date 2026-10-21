@@ -26,6 +26,21 @@ vi.mock('@starhold/bots', async (importOriginal) => {
   };
 });
 
+/** Lets a test make the engine itself throw for chosen actions (it never does on its own). */
+const engineMock = vi.hoisted(() => ({
+  throwFor: null as null | ((action: { type: string }) => boolean),
+}));
+vi.mock('@starhold/engine', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@starhold/engine')>();
+  return {
+    ...actual,
+    applyAction: (...args: Parameters<typeof actual.applyAction>) => {
+      if (engineMock.throwFor?.(args[2])) throw new Error('engine exploded');
+      return actual.applyAction(...args);
+    },
+  };
+});
+
 interface Rig {
   room: Room;
   hooks: TestHooks;
@@ -127,6 +142,7 @@ beforeEach(() => {
 
 afterEach(() => {
   botMock.override = null;
+  engineMock.throwFor = null;
   vi.restoreAllMocks();
   vi.useRealTimers();
 });
@@ -278,6 +294,20 @@ describe('Room game loop: bots', () => {
     vi.advanceTimersByTime(10);
     expect(currentId(room)).toBe(humans[0]);
     expect(warn).toHaveBeenCalled();
+  });
+
+  it('a candidate whose apply() throws is skipped and the endTurn fallback is reached', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { room, humans, bots } = rig({ humans: 1, bots: ['normal'] });
+    makeCurrent(room, bots[0] as string, 'MAIN');
+    // The AI's choice makes the engine throw (not return an error); the fallbacks must still run.
+    botMock.override = () => ({ type: 'bankTrade', give: 'metal', get: 'energy' });
+    engineMock.throwFor = (action) => action.type === 'bankTrade';
+    vi.advanceTimersByTime(10);
+    expect(currentId(room)).toBe(humans[0]); // reached endTurn
+    expect(warn.mock.calls.some((c) => String(c[0]).includes('"msg":"bot action threw'))).toBe(
+      true,
+    );
   });
 
   it('a throwing bot in DISCARD falls back to a random discard', () => {

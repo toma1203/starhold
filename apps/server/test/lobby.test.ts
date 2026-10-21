@@ -56,6 +56,20 @@ describe('Room lobby', () => {
     expect(room.info(ok.playerId).seats[0]?.name).toBe('Ada');
   });
 
+  it('reserves the "Bot " name prefix: humans using it are rejected, bots keep their own names', () => {
+    const { room } = setup();
+    for (const name of ['Bot Vega', 'bot orion', 'BOT  Lyra', '  Bot x']) {
+      expect(room.addHuman(name), name).toEqual({ error: 'err.badRequest' });
+    }
+    expect(room.seats).toHaveLength(0);
+    expect('error' in room.addHuman('Botan')).toBe(false);
+    expect('error' in room.addHuman('Bot')).toBe(false);
+    const host = room.seats[0]?.playerId as string;
+    addBot(room, host, 'easy');
+    addBot(room, host, 'easy');
+    expect(room.seats.filter((s) => s.isBot).map((s) => s.name)).toEqual(['Bot Vega', 'Bot Orion']);
+  });
+
   it('non-host addBot -> err.notHost', () => {
     const { room } = setup();
     join(room, 'Host');

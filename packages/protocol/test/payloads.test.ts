@@ -79,12 +79,17 @@ describe('AddBotPayloadSchema', () => {
 });
 
 describe('RemoveBotPayloadSchema', () => {
-  it('accepts a short id', () => {
-    expect(RemoveBotPayloadSchema.parse({ playerId: 'abc123' })).toEqual({ playerId: 'abc123' });
+  it('accepts an 8-char base36 id', () => {
+    expect(RemoveBotPayloadSchema.parse({ playerId: 'abc12345' })).toEqual({
+      playerId: 'abc12345',
+    });
   });
   it('rejects long ids, non-strings, missing and extra keys', () => {
     for (const bad of [
       { playerId: 'x'.repeat(17) },
+      { playerId: 'abc123' },
+      { playerId: '__proto__' },
+      { playerId: 'ABCD1234' },
       { playerId: 4 },
       {},
       { playerId: 'a', extra: 1 },

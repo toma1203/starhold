@@ -293,6 +293,45 @@ describe('room lifecycle over sockets', () => {
     expect(last(b.rooms)?.you).toBe(joined.playerId);
   });
 
+  it('repeated creates from one socket never accumulate empty lobbies', async () => {
+    await boot({ maxRooms: 3 });
+    const a = await connect();
+    for (let i = 0; i < 8; i += 1) {
+      const ack = await call(a, 'room:create', { name: 'Ana' });
+      expect(ack.ok, `create #${i + 1}`).toBe(true);
+    }
+    // Only the latest room is registered; a second client can still create one.
+    const b = await connect();
+    expect((await call(b, 'room:create', { name: 'Bo' })).ok).toBe(true);
+    const c = await connect();
+    expect((await call(c, 'room:create', { name: 'Cy' })).ok).toBe(true);
+  });
+
+  it('leaving the last seat of a lobby deletes the room', async () => {
+    await boot();
+    const a = await connect();
+    const created = await okAck(call(a, 'room:create', { name: 'Ana' }));
+    send(a, 'room:leave');
+    await new Promise((r) => setTimeout(r, 50));
+    const b = await connect();
+    expect(await call(b, 'room:join', { code: created.code, name: 'Bo' })).toEqual({
+      ok: false,
+      error: 'err.roomNotFound',
+    });
+  });
+
+  it('room:create is throttled per socket by the create cooldown', async () => {
+    await boot({ createCooldownMs: 300 });
+    const a = await connect();
+    expect((await call(a, 'room:create', { name: 'Ana' })).ok).toBe(true);
+    expect(await call(a, 'room:create', { name: 'Ana' })).toEqual({
+      ok: false,
+      error: 'err.rateLimited',
+    });
+    await new Promise((r) => setTimeout(r, 350));
+    expect((await call(a, 'room:create', { name: 'Ana' })).ok).toBe(true);
+  });
+
   it('leave frees the seat in the lobby', async () => {
     await boot();
     const { a, b } = await twoPlayerRoom();
