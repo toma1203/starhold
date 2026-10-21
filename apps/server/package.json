@@ -1,0 +1,17 @@
+{
+  "name": "@starhold/server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit && tsc --noEmit -p test/tsconfig.src-only.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@starhold/engine": "*",
+    "@starhold/protocol": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0"
+  }
+}
